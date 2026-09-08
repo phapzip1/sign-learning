@@ -11,12 +11,12 @@ async function readCount() {
 }
 
 const getCount = createServerFn({
-    method: 'GET',
+    method: "GET",
 }).handler(() => {
     return readCount()
 })
 
-const updateCount = createServerFn({ method: 'POST' })
+const updateCount = createServerFn({ method: "POST" })
     .validator((d: number) => d)
     .handler(async ({ data }) => {
         const count = await readCount()
@@ -35,6 +35,7 @@ function Home() {
     return (
         <button
             type="button"
+            className="w-full"
             onClick={() => {
                 updateCount({ data: 1 }).then(() => {
                     router.invalidate()
