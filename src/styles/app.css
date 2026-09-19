@@ -1,13 +1,13 @@
+@import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/noto-sans";
 @import "@fontsource-variable/playfair-display";
 
-@tailwind base;
+
+@tailwind utilities;
 
 @custom-variant dark (&:is(.dark *));
-@tailwind components;
-@tailwind utilities;
 
 :root {
     --background: oklch(1 0 0);
