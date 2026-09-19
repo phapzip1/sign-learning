@@ -13,14 +13,14 @@ import { StoredWordItem } from "@/src/types/word.type";
 import { baseTableFeatures } from "@/src/lib/tables";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { ArrowUpDown, ArrowUpRight } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 type WordTableProps = {
     data: StoredWordItem[];
     className?: string;
-    onSelectedItem?: (data: StoredWordItem) => void;
+    onSelectedChange?: (data: StoredWordItem[]) => void;
+    search?: string;
 }
 
 const columnHelper = createColumnHelper<typeof baseTableFeatures, StoredWordItem>();
@@ -28,7 +28,8 @@ const columnHelper = createColumnHelper<typeof baseTableFeatures, StoredWordItem
 const WordTable: React.FC<WordTableProps> = ({
     data,
     className,
-    onSelectedItem
+    onSelectedChange,
+    search,
 }) => {
     const actColumns = React.useMemo(() => columnHelper.columns([
         columnHelper.display({
@@ -47,7 +48,7 @@ const WordTable: React.FC<WordTableProps> = ({
                 );
             },
             cell: ({ row }) => {
-
+                
                 return (
                     <Checkbox
                         checked={row.getIsSelected()}
@@ -122,6 +123,9 @@ const WordTable: React.FC<WordTableProps> = ({
         columns: actColumns,
         data,
         onSortingChange: setSorting,
+        // onRowSelectionChange: (updater) => {
+        //     onSelectedChange?.(table.getSelectedRowModel().rows.map(row => row.original));
+        // },
         state: {
             sorting,
         }
@@ -129,71 +133,65 @@ const WordTable: React.FC<WordTableProps> = ({
 
     return (
         <div className={cn("flex flex-col gap-2 justify-between", className)}>
-            <div className="flex flex-col gap-2">
-                <Input
-                    className=""
-                    placeholder="Search words in this collection"
-                />
-                <Table>
-                    <TableHeader>
-                        {
-                            table.getHeaderGroups().map((hg) => {
+            <Table>
+                <TableHeader>
+                    {
+                        table.getHeaderGroups().map((hg) => {
+
+                            return (
+                                <TableRow key={hg.id}>
+                                    {
+                                        hg.headers.map((h) => {
+                                            return (
+                                                <TableHead key={h.id}>
+                                                    {
+                                                        h.isPlaceholder ? null : (
+                                                            <table.FlexRender header={h} />
+                                                        )
+                                                    }
+                                                </TableHead>
+                                            );
+                                        })
+                                    }
+                                </TableRow>
+                            );
+                        })
+                    }
+                </TableHeader>
+                <TableBody>
+                    {
+                        table.getRowModel().rows?.length ? (
+                            table.getRowModel().rows.map((row) => {
 
                                 return (
-                                    <TableRow key={hg.id}>
+                                    <TableRow
+                                        key={row.id}
+                                        data-state={row.getIsSelected() && "selected"}
+                                    >
                                         {
-                                            hg.headers.map((h) => {
+                                            row.getVisibleCells().map((cell) => {
+
                                                 return (
-                                                    <TableHead key={h.id}>
-                                                        {
-                                                            h.isPlaceholder ? null : (
-                                                                <table.FlexRender header={h} />
-                                                            )
-                                                        }
-                                                    </TableHead>
-                                                );
+                                                    <TableCell key={cell.id}>
+                                                        <table.FlexRender cell={cell} />
+                                                    </TableCell>
+                                                )
                                             })
                                         }
                                     </TableRow>
-                                );
-                            })
-                        }
-                    </TableHeader>
-                    <TableBody>
-                        {
-                            table.getRowModel().rows?.length ? (
-                                table.getRowModel().rows.map((row) => {
-
-                                    return (
-                                        <TableRow
-                                            key={row.id}
-                                            data-state={row.getIsSelected() && "selected"}
-                                        >
-                                            {
-                                                row.getVisibleCells().map((cell) => {
-
-                                                    return (
-                                                        <TableCell key={cell.id}>
-                                                            <table.FlexRender cell={cell} />
-                                                        </TableCell>
-                                                    )
-                                                })
-                                            }
-                                        </TableRow>
-                                    )
-                                })
-                            ) :
-                                (
-                                    <TableRow>
-                                        <TableCell colSpan={actColumns.length} className="h-24 text-center">
-                                            No results.
-                                        </TableCell>
-                                    </TableRow>
                                 )
-                        }
-                    </TableBody>
-                </Table>
-            </div>
+                            })
+                        ) :
+                            (
+                                <TableRow>
+                                    <TableCell colSpan={actColumns.length} className="h-24 text-center">
+                                        No results.
+                                    </TableCell>
+                                </TableRow>
+                            )
+                    }
+                </TableBody>
+            </Table>
             <div className="flex items-center justify-end space-x-2 mt-2">
                 <Button
                     variant="outline"

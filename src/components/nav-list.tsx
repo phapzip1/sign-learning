@@ -10,11 +10,12 @@ import {
     Users,
 } from "lucide-react";
 import { useApp } from "@/src/providers/app-provider";
+import { Button } from "@/components/ui/button";
 
 const learnerNav = [
     { to: "/", label: "Dashboard", icon: LayoutDashboard },
     { to: "/dictionary", label: "Dictionary", icon: Search },
-    { to: "/flashcards", label: "Flashcards", icon: BookOpen },
+    { to: "/flashcards", label: "Study", icon: BookOpen },
 ];
 
 const adminNav = [
@@ -61,8 +62,11 @@ const NavList: React.FC = () => {
                 </span>
             </Show> */}
             <Show when="signed-out">
-                <SignInButton />
-                <SignUpButton />
+                <SignInButton >
+                    <Button className="bg-blue-500 hover:bg-blue-700 rounded">
+                        Login
+                    </Button>
+                </SignInButton>
             </Show>
         </div>
     );
