@@ -1,13 +1,10 @@
 import React from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Calendar, FileText, Plus, Search } from "lucide-react";
+import { Calendar, FileText, Plus } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import WordTable from "@/src/components/word-table";
-import { StoredWordItem } from "@/src/types/word.type";
-import { MOCKCOLLECTIONS, MOCKSTOREDWORDS } from "@/src/lib/mock";
 import {
   Sidebar,
   SidebarContent,
@@ -17,6 +14,9 @@ import {
   SidebarProvider,
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
+import WordTable from "@/src/components/word-table";
+import { StoredWordItem } from "@/src/types/word.type";
+import { MOCKCOLLECTIONS, MOCKSTOREDWORDS } from "@/src/lib/mock";
 
 const FavoritesPage: React.FC = () => {
   const [selectedItem, setSelectedItem] = React.useState<StoredWordItem | null>(null);
@@ -90,7 +90,7 @@ const FavoritesPage: React.FC = () => {
       <div className="flex flex-col gap-4 flex-1">
         <Card className="rounded p-0 min-h-40">
           <CardContent className="flex flex-row justify-between py-4 h-full">
-            <div className="flex flex-col justify-between">
+            <div className="flex flex-col justify-between flex-1">
               <span>
                 <h2 className="text-3xl font-semibold">
                   Title
@@ -108,17 +108,23 @@ const FavoritesPage: React.FC = () => {
                 </span>
               </div>
             </div>
+            <div className="flex flex-row gap-4 items-start h-fit">
+              <Button
+                variant="outline"
+              >
+                Edit
+              </Button>
+              <Button
+                variant="destructive"
+              >
+                Delete
+              </Button>
+            </div>
           </CardContent>
         </Card>
-        <Card className="rounded p-0 flex-1">
-          <CardContent className="py-4">
-            <div className="flex flex-row mb-4 gap-4">
-              <Input
-                className=""
-                placeholder="Search words in this collection"
-              />
-            </div>
-            <WordTable data={MOCKSTOREDWORDS} onSelectedItem={onSelectRow} />
+        <Card className="flex flex-row rounded p-0 flex-1">
+          <CardContent className="w-full py-4">
+            <WordTable className="h-full w-full" data={MOCKSTOREDWORDS} onSelectedItem={onSelectRow} />
           </CardContent>
         </Card>
       </div>

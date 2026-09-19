@@ -50,6 +50,7 @@ import {
   ComboboxList
 } from "@/components/ui/combobox";
 import { WordKinds } from "@/src/types/word.type";
+import { Card, CardContent } from "@/components/ui/card";
 
 type FormState = {
   word: string;
@@ -211,171 +212,165 @@ const WordSuggestionsPage: React.FC = () => {
   };
 
   return (
-    <div className="w-300 mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="block text-2xl font-semibold">Your suggestions</h2>
-        <Sheet open={open} onOpenChange={setOpen}>
-          <SheetTrigger
-            className={buttonVariants({ variant: "default" })}
-          >
-            Suggest a new word
-          </SheetTrigger>
-          <SheetContent side="right">
-            <SheetHeader>
-              <SheetTitle>Suggest a New Word</SheetTitle>
-              <SheetDescription>Provide details about the sign and submit it for review.</SheetDescription>
-            </SheetHeader>
+    <div className="w-400 mx-auto">
+      <Card className="rounded p-0 mb-4">
+        <CardContent className="flex items-center justify-between py-4">
+          <h2 className="block text-xl font-semibold">Your suggestions</h2>
+          <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger
+              className={buttonVariants({ variant: "default" })}
+            >
+              Suggest a new word
+            </SheetTrigger>
+            <SheetContent side="right">
+              <SheetHeader>
+                <SheetTitle>Suggest a New Word</SheetTitle>
+                <SheetDescription>Provide details about the sign and submit it for review.</SheetDescription>
+              </SheetHeader>
 
-            <div className="p-8">
-              {error && <div className="text-red-700 bg-red-100 p-2 rounded mb-4">{error}</div>}
-              {success && <div className="text-green-700 bg-green-100 p-2 rounded mb-4">{success}</div>}
+              <div className="p-8">
+                {error && <div className="text-red-700 bg-red-100 p-2 rounded mb-4">{error}</div>}
+                {success && <div className="text-green-700 bg-green-100 p-2 rounded mb-4">{success}</div>}
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label className="mb-1">Word (in sign language)</Label>
-                  <Input name="word" value={form.word} onChange={handleChange} placeholder="Enter the word or gloss" required />
-                </div>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div>
+                    <Label className="mb-1">Word (in sign language)</Label>
+                    <Input name="word" value={form.word} onChange={handleChange} placeholder="Enter the word or gloss" required />
+                  </div>
 
-                <div>
-                  <Label className="mb-1">Description</Label>
-                  <Input
-                    name="translation"
-                    value={form.translation}
-                    onChange={handleChange}
-                    placeholder="English translation"
-                    required
-                  />
-                </div>
+                  <div>
+                    <Label className="mb-1">Meaning</Label>
+                    <Input
+                      name="translation"
+                      value={form.translation}
+                      onChange={handleChange}
+                      placeholder="English translation"
+                      required
+                    />
+                  </div>
 
-                <div>
-                  <Label className="mb-1">Part of speech</Label>
-                  <Combobox items={WordKinds}>
-                    <ComboboxInput placeholder="All category" className="mb-2" readOnly required />
-                    <ComboboxContent>
-                      <ComboboxEmpty>No items found.</ComboboxEmpty>
-                      <ComboboxList>
-                        {(item: string) => (
-                          <ComboboxItem key={item} value={item}>
-                            {item.toUpperCase()}
-                          </ComboboxItem>
-                        )}
-                      </ComboboxList>
-                    </ComboboxContent>
-                  </Combobox>
-                </div>
+                  <div>
+                    <Label className="mb-1">Part of speech</Label>
+                    <Combobox items={WordKinds}>
+                      <ComboboxInput placeholder="All category" className="mb-2" readOnly required />
+                      <ComboboxContent>
+                        <ComboboxEmpty>No items found.</ComboboxEmpty>
+                        <ComboboxList>
+                          {(item: string) => (
+                            <ComboboxItem key={item} value={item}>
+                              {item.toUpperCase()}
+                            </ComboboxItem>
+                          )}
+                        </ComboboxList>
+                      </ComboboxContent>
+                    </Combobox>
+                  </div>
 
-                <div>
-                  <Label className="mb-1">Meaning</Label>
-                  <Textarea name="description" value={form.description} onChange={handleChange} placeholder="Usage notes, handshape, movement, or link to a video recording" rows={4} />
-                </div>
+                  <div>
+                    <Label className="mb-1">Description</Label>
+                    <Textarea name="description" value={form.description} onChange={handleChange} placeholder="Usage notes, handshape, movement, or link to a video recording" rows={4} />
+                  </div>
 
-                <div>
-                  <Label className="mb-1">Tags (comma separated)</Label>
-                  <Input name="tags" value={form.tags} onChange={handleChange} placeholder="e.g. food,vegetable,basic" />
-                </div>
+                  <div>
+                    <Label className="mb-1">Tags (comma separated)</Label>
+                    <Input name="tags" value={form.tags} onChange={handleChange} placeholder="e.g. food,vegetable,basic" />
+                  </div>
 
-                <div className="flex items-center gap-3 mt-4">
-                  <Button type="submit" variant="default" disabled={loading}>
-                    {loading ? "Submitting..." : "Submit Suggestion"}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setForm(initialState);
-                      setError(null);
-                      setSuccess(null);
-                    }}
-                  >
-                    Reset
-                  </Button>
-                </div>
-              </form>
-            </div>
+                  <div className="flex items-center gap-3 mt-4">
+                    <Button type="submit" variant="default" disabled={loading}>
+                      {loading ? "Submitting..." : "Submit Suggestion"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setForm(initialState);
+                        setError(null);
+                        setSuccess(null);
+                      }}
+                    >
+                      Reset
+                    </Button>
+                  </div>
+                </form>
+              </div>
 
-            <SheetFooter />
-          </SheetContent>
-        </Sheet>
-      </div>
+              <SheetFooter />
+            </SheetContent>
+          </Sheet>
+        </CardContent>
+      </Card>
 
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">Showing {items.length} suggestion{items.length !== 1 ? "s" : ""}</div>
-          <div className="flex items-center gap-2">
-            <Label className="text-sm text-muted-foreground">Page size:</Label>
-            <Input
-              type="number"
-              value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
-              className="w-20"
-              min={1}
-            />
+      <Card className="rounded p-0">
+        <CardContent className="py-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">Showing {items.length} suggestion{items.length !== 1 ? "s" : ""}</div>
           </div>
-        </div>
 
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
-                    {header.isPlaceholder ? null : (
-                      <div
-                        className="flex items-center gap-2 cursor-pointer select-none"
-                        onClick={header.column.getToggleSortingHandler()}
-                      >
-                        {
-                          flexRender(header.column.columnDef.header, header.getContext())
-                        }
-                        <span className="opacity-50 text-xs">
-                          {header.column.getIsSorted() === "asc" ? " ▲" : header.column.getIsSorted() === "desc" ? " ▼" : ""}
-                        </span>
-                      </div>
-                    )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="p-6 text-center text-muted-foreground">
-                  No suggestions yet. Use the button above to add one.
-                </TableCell>
-              </TableRow>
-            ) : (
-              table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
-                  {
-                    row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
-                        {
-                          flexRender(cell.column.columnDef.cell, cell.getContext())
-                        }
-                      </TableCell>
-                    ))
-                  }
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder ? null : (
+                        <div
+                          className="flex items-center gap-2 cursor-pointer select-none"
+                          onClick={header.column.getToggleSortingHandler()}
+                        >
+                          {
+                            flexRender(header.column.columnDef.header, header.getContext())
+                          }
+                          <span className="opacity-50 text-xs">
+                            {header.column.getIsSorted() === "asc" ? " ▲" : header.column.getIsSorted() === "desc" ? " ▼" : ""}
+                          </span>
+                        </div>
+                      )}
+                    </TableHead>
+                  ))}
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="p-6 text-center text-muted-foreground">
+                    No suggestions yet. Use the button above to add one.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow key={row.id}>
+                    {
+                      row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>
+                          {
+                            flexRender(cell.column.columnDef.cell, cell.getContext())
+                          }
+                        </TableCell>
+                      ))
+                    }
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
 
-        <div className="flex items-center justify-between mt-4">
-          <div className="text-sm text-muted-foreground">
-            Page {table.state.pagination.pageIndex + 1} of {table.getPageCount()}
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              Page {table.state.pagination.pageIndex + 1} of {table.getPageCount()}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
+                Previous
+              </Button>
+              <Button variant="outline" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
+                Next
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
-              Previous
-            </Button>
-            <Button variant="outline" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
-              Next
-            </Button>
-          </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

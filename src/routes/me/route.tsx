@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import React from "react";
+import { Card, CardContent } from "@/components/ui/card";
 
 const tabs = [
     {
@@ -33,23 +34,27 @@ const MeRootLayout: React.FC = () => {
 
     return (
         <div className="flex flex-col gap-4 w-full">
-            <Tabs
-                value={tab}
-                onValueChange={setTab}
-            >
-                <TabsList
-                    variant="line"
-                >
-                    {
-                        tabs.map((tab) => {
-                            return (
-                                <TabsTrigger key={tab.path} value={tab.path}>{tab.label}</TabsTrigger>
-                            );
-                        })
-                    }
-                </TabsList>
-                <Outlet />
-            </Tabs>
+            <Card className="rounded p-0 w-full min-h-12 max-h-12">
+                <CardContent className="">
+                    <Tabs
+                        value={tab}
+                        onValueChange={setTab}
+                    >
+                        <TabsList
+                            variant="line"
+                        >
+                            {
+                                tabs.map((tab) => {
+                                    return (
+                                        <TabsTrigger key={tab.path} value={tab.path}>{tab.label}</TabsTrigger>
+                                    );
+                                })
+                            }
+                        </TabsList>
+                    </Tabs>
+                </CardContent>
+            </Card>
+            <Outlet />
         </div>
     );
 }
