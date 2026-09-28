@@ -1,108 +1,111 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-[ApiController]
-[Route("api/users")]
-public class UserController(IUserService user, ILogger<UserController> logger) : ControllerBase
+namespace Service.Controllers
 {
-    private readonly IUserService mUser = user;
-    private readonly ILogger<UserController> mLogger = logger;
-
-    [HttpPut("{userID}/ban")]
-    [HttpPatch("{userID}/ban")]
-    [Authorize]
-    public async Task<IActionResult> BanUser(string userID)
+    [ApiController]
+    [Route("api/users")]
+    public class UserController(Services.IUserService user, ILogger<UserController> logger) : ControllerBase
     {
-        try
-        {
-            var banned = await mUser.BanUserAsync(userID, true);
+        private readonly Services.IUserService mUser = user;
+        private readonly ILogger<UserController> mLogger = logger;
 
-            return Ok(banned);
-        }
-        catch (Exception e)
+        [HttpPut("{userID}/ban")]
+        [HttpPatch("{userID}/ban")]
+        [Authorize]
+        public async Task<IActionResult> BanUser(string userID)
         {
-            mLogger.LogError(e.Message);
-            return StatusCode(500);
-        }
-    }
-
-    [HttpPut("{userID}/unban")]
-    [HttpPatch("{userID}/unban")]
-    [Authorize]
-    public async Task<IActionResult> UnbanUser(string userID)
-    {
-        try
-        {
-            var banned = await mUser.BanUserAsync(userID, false);
-
-            return Ok(banned);
-        }
-        catch (Exception e)
-        {
-            mLogger.LogError(e.Message);
-            return StatusCode(500);
-        }
-    }
-
-    [HttpGet]
-    public async Task<IActionResult> GetUsers([FromQuery] int limit = 100, [FromQuery] int offset = 0)
-    {
-        try
-        {
-            var users = await mUser.GetUsersAsync(limit, offset);
-
-            var result = users.Select(user => new RestrictedUserDTO
+            try
             {
-                ID = user.Id,
-                Username = user.Username
-            }).ToList();
+                var banned = await mUser.BanUserAsync(userID, true);
 
-            return Ok(result);
-        }
-        catch (Exception e)
-        {
-            mLogger.LogError(e.Message);
-            return StatusCode(500);
-        }
-
-    }
-
-    [HttpGet("me")]
-    [Authorize]
-    public async Task<IActionResult> GetMe()
-    {
-        try
-        {
-            var userID = User.FindFirst("sub")?.Value;
-
-            if (string.IsNullOrEmpty(userID))
+                return Ok(banned);
+            }
+            catch (Exception e)
             {
-                return Unauthorized();
+                mLogger.LogError(e.Message);
+                return StatusCode(500);
+            }
+        }
+
+        [HttpPut("{userID}/unban")]
+        [HttpPatch("{userID}/unban")]
+        [Authorize]
+        public async Task<IActionResult> UnbanUser(string userID)
+        {
+            try
+            {
+                var banned = await mUser.BanUserAsync(userID, false);
+
+                return Ok(banned);
+            }
+            catch (Exception e)
+            {
+                mLogger.LogError(e.Message);
+                return StatusCode(500);
+            }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetUsers([FromQuery] int limit = 100, [FromQuery] int offset = 0)
+        {
+            try
+            {
+                var users = await mUser.GetUsersAsync(limit, offset);
+
+                var result = users.Select(user => new DTOs.RestrictedUserDTO
+                {
+                    ID = user.Id,
+                    Username = user.Username
+                }).ToList();
+
+                return Ok(result);
+            }
+            catch (Exception e)
+            {
+                mLogger.LogError(e.Message);
+                return StatusCode(500);
             }
 
-            var user = await mUser.GetUserAsync(userID);
-
-            if (user == null)
-            {
-                return NotFound("user was not found");
-            }
-
-            var result = new UserDTO
-            {
-                ID = user.Id,
-                Username = user.Username,
-                FirtsName = user.FirstName,
-                LastName = user.LastName,
-                Email = user.EmailAddresses?.FirstOrDefault(e => e.Id == user.PrimaryEmailAddressId)?.EmailAddressValue,
-            };
-
-            return Ok(result);
         }
-        catch (Exception e)
+
+        [HttpGet("me")]
+        [Authorize]
+        public async Task<IActionResult> GetMe()
         {
-            mLogger.LogError(e.Message);
-            return StatusCode(500);
-        }
-    }
+            try
+            {
+                var userID = User.FindFirst("sub")?.Value;
 
+                if (string.IsNullOrEmpty(userID))
+                {
+                    return Unauthorized();
+                }
+
+                var user = await mUser.GetUserAsync(userID);
+
+                if (user == null)
+                {
+                    return NotFound("user was not found");
+                }
+
+                var result = new DTOs.UserDTO
+                {
+                    ID = user.Id,
+                    Username = user.Username,
+                    FirtsName = user.FirstName,
+                    LastName = user.LastName,
+                    Email = user.EmailAddresses?.FirstOrDefault(e => e.Id == user.PrimaryEmailAddressId)?.EmailAddressValue,
+                };
+
+                return Ok(result);
+            }
+            catch (Exception e)
+            {
+                mLogger.LogError(e.Message);
+                return StatusCode(500);
+            }
+        }
+
+    }
 }

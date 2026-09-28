@@ -26,6 +26,8 @@ namespace service.Migrations
                     LearningSteps = table.Column<int[]>(type: "longtext", nullable: false),
                     RelearningSteps = table.Column<int[]>(type: "longtext", nullable: false),
                     MaximumInterval = table.Column<uint>(type: "int unsigned", nullable: false),
+                    NewCardsPerDay = table.Column<uint>(type: "int unsigned", nullable: false),
+                    MaximumReviewsPerDay = table.Column<uint>(type: "int unsigned", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false)
                 },
@@ -42,9 +44,12 @@ namespace service.Migrations
                     Id = table.Column<uint>(type: "int unsigned", nullable: false)
                         .Annotation("MySQL:ValueGenerationStrategy", MySQLValueGenerationStrategy.IdentityColumn),
                     Value = table.Column<string>(type: "longtext", nullable: false),
+                    Cover = table.Column<string>(type: "longtext", nullable: false),
                     Meaning = table.Column<string>(type: "longtext", nullable: false),
-                    Level = table.Column<string>(type: "longtext", nullable: false),
+                    Level = table.Column<int>(type: "int", nullable: false),
                     DemoURL = table.Column<string>(type: "longtext", nullable: false),
+                    Instruction = table.Column<string>(type: "longtext", nullable: false),
+                    Topic = table.Column<int>(type: "int", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false)
                 },
@@ -65,6 +70,7 @@ namespace service.Migrations
                     Step = table.Column<int>(type: "int", nullable: true),
                     Stability = table.Column<float>(type: "float", nullable: false),
                     Difficulty = table.Column<float>(type: "float", nullable: false),
+                    FirstReviewAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
                     LastReviewAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
                     DueAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
@@ -81,26 +87,6 @@ namespace service.Migrations
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_Cards_Words_WordId",
-                        column: x => x.WordId,
-                        principalTable: "Words",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                })
-                .Annotation("MySQL:Charset", "utf8mb4");
-
-            migrationBuilder.CreateTable(
-                name: "Instruction",
-                columns: table => new
-                {
-                    WordId = table.Column<uint>(type: "int unsigned", nullable: false),
-                    Step = table.Column<uint>(type: "int unsigned", nullable: false),
-                    Description = table.Column<string>(type: "longtext", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Instruction", x => new { x.WordId, x.Step });
-                    table.ForeignKey(
-                        name: "FK_Instruction_Words_WordId",
                         column: x => x.WordId,
                         principalTable: "Words",
                         principalColumn: "Id",
@@ -150,9 +136,6 @@ namespace service.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "Instruction");
-
             migrationBuilder.DropTable(
                 name: "ReviewLogs");
 

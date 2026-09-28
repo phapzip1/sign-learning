@@ -19,6 +19,9 @@ namespace Service.Models
         public int[] RelearningSteps { get; set; } = [600];
         public uint MaximumInterval { get; set; } = 36500;
 
+        public uint NewCardsPerDay { get; set; } = 20;
+        public uint MaximumReviewsPerDay { get; set; } = 200;
+
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime UpdatedAt { get; set; }
 

@@ -23,7 +23,8 @@ builder.Services.AddSingleton(sp =>
 });
 
 
-builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<Service.Services.IUserService, Service.Services.UserService>();
+builder.Services.AddScoped<Service.Utils.FsrsScheduler>();
 builder.Services.AddControllers();
 
 var app = builder.Build();

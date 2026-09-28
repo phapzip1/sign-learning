@@ -2,7 +2,8 @@ namespace Service.Models
 {
     public enum LearningState
     {
-        Learning = 0,
+        New = 0,
+        Learning,
         Review,
         Relearning
     }
@@ -22,6 +23,7 @@ namespace Service.Models
         public float Stability { get; set; }
         public float Difficulty { get; set; }
 
+        public DateTime? FirstReviewAt { get; set; }
         public DateTime? LastReviewAt { get; set; }
         public DateTime? DueAt { get; set; }
 

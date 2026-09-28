@@ -37,6 +37,9 @@ namespace service.Migrations
                     b.Property<DateTime?>("DueAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<DateTime?>("FirstReviewAt")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<DateTime?>("LastReviewAt")
                         .HasColumnType("datetime(6)");
 
@@ -83,9 +86,15 @@ namespace service.Migrations
                     b.Property<uint>("MaximumInterval")
                         .HasColumnType("int unsigned");
 
+                    b.Property<uint>("MaximumReviewsPerDay")
+                        .HasColumnType("int unsigned");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("longtext");
+
+                    b.Property<uint>("NewCardsPerDay")
+                        .HasColumnType("int unsigned");
 
                     b.PrimitiveCollection<int[]>("RelearningSteps")
                         .IsRequired()
@@ -101,23 +110,6 @@ namespace service.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Decks");
-                });
-
-            modelBuilder.Entity("Service.Models.Instruction", b =>
-                {
-                    b.Property<uint>("WordId")
-                        .HasColumnType("int unsigned");
-
-                    b.Property<uint>("Step")
-                        .HasColumnType("int unsigned");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.HasKey("WordId", "Step");
-
-                    b.ToTable("Instruction");
                 });
 
             modelBuilder.Entity("Service.Models.ReviewLog", b =>
@@ -155,6 +147,10 @@ namespace service.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int unsigned");
 
+                    b.Property<string>("Cover")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
@@ -162,13 +158,19 @@ namespace service.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
-                    b.Property<string>("Level")
+                    b.Property<string>("Instruction")
                         .IsRequired()
                         .HasColumnType("longtext");
+
+                    b.Property<int>("Level")
+                        .HasColumnType("int");
 
                     b.Property<string>("Meaning")
                         .IsRequired()
                         .HasColumnType("longtext");
+
+                    b.Property<int>("Topic")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime(6)");
@@ -201,15 +203,6 @@ namespace service.Migrations
                     b.Navigation("Word");
                 });
 
-            modelBuilder.Entity("Service.Models.Instruction", b =>
-                {
-                    b.HasOne("Service.Models.Word", null)
-                        .WithMany("Instructions")
-                        .HasForeignKey("WordId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
             modelBuilder.Entity("Service.Models.ReviewLog", b =>
                 {
                     b.HasOne("Service.Models.Card", "Card")
@@ -219,11 +212,6 @@ namespace service.Migrations
                         .IsRequired();
 
                     b.Navigation("Card");
-                });
-
-            modelBuilder.Entity("Service.Models.Word", b =>
-                {
-                    b.Navigation("Instructions");
                 });
 #pragma warning restore 612, 618
         }
