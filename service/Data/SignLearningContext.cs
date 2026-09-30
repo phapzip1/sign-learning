@@ -15,6 +15,31 @@ namespace Service.Data
         {
             string? conn = mConfiguration.GetConnectionString("DefaultConnection") ?? throw new Exception("Connection string was null");
             optionsBuilder.UseMySQL(conn);
+
+        }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<Models.Deck>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity
+                    .Property(e => e.LearningSteps)
+                    .HasColumnType("json")
+                    .HasConversion(
+                        v => System.Text.Json.JsonSerializer.Serialize(v, options: null),
+                        v => System.Text.Json.JsonSerializer.Deserialize<int[]>(v, options: null)
+                );
+
+                entity
+                    .Property(e => e.RelearningSteps)
+                    .HasColumnType("json")
+                    .HasConversion(
+                        v => System.Text.Json.JsonSerializer.Serialize(v, options: null),
+                        v => System.Text.Json.JsonSerializer.Deserialize<int[]>(v, options: null)
+                );
+            });
         }
     }
 }

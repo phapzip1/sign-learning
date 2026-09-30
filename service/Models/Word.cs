@@ -14,7 +14,7 @@ namespace Service.Models
 
     public enum Level
     {
-        Beginner = 0,
+        Beginner = 1,
         Intermediate,
         Advance
     }

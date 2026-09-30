@@ -12,9 +12,12 @@ import {
 import { useApp } from "@/src/providers/app-provider";
 import { Button } from "@/components/ui/button";
 
-const learnerNav = [
+const basicNav = [
     { to: "/", label: "Dashboard", icon: LayoutDashboard },
     { to: "/dictionary", label: "Dictionary", icon: Search },
+];
+
+const authedNav = [
     { to: "/flashcards", label: "Study", icon: BookOpen },
 ];
 
@@ -28,24 +31,40 @@ const adminNav = [
 const NavList: React.FC = () => {
     const user = useApp((state) => state.user);
 
-    const items = user?.role === "admin" ? adminNav : learnerNav;
 
     return (
         <div className="flex flex-row gap-2 items-center">
-            {items.map((item) => {
-                return (
-                    <Link
-                        key={item.to}
-                        to={item.to}
-                        activeProps={{ className: "bg-primary text-primary-foreground shadow-sm" }}
-                        inactiveProps={{ className: "text-muted-foreground hover:bg-muted hover:text-foreground" }}
-                        className="flex items-center gap-3 rounded px-3 py-2.5 text-sm font-medium transition"
-                    >
-                        {item.label}
-                    </Link>
-                )
-            })}
+            {
+                basicNav.map((item) => {
+                    return (
+                        <Link
+                            key={item.to}
+                            to={item.to}
+                            activeProps={{ className: "bg-primary text-primary-foreground shadow-sm" }}
+                            inactiveProps={{ className: "text-muted-foreground hover:bg-muted hover:text-foreground" }}
+                            className="flex items-center gap-3 rounded px-3 py-2.5 text-sm font-medium transition"
+                        >
+                            {item.label}
+                        </Link>
+                    )
+                })
+            }
             <Show when="signed-in">
+                {
+                    authedNav.map((item) => {
+                        return (
+                            <Link
+                                key={item.to}
+                                to={item.to}
+                                activeProps={{ className: "bg-primary text-primary-foreground shadow-sm" }}
+                                inactiveProps={{ className: "text-muted-foreground hover:bg-muted hover:text-foreground" }}
+                                className="flex items-center gap-3 rounded px-3 py-2.5 text-sm font-medium transition"
+                            >
+                                {item.label}
+                            </Link>
+                        )
+                    })
+                }
                 <Link
 
                     to="/me"

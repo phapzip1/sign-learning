@@ -1,9 +1,9 @@
 import React from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Card, CardContent } from "@/components/ui/card";
-import SignDemo from "@/src/components/sign-demo";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import SignDemo from "@/src/components/sign-demo";
 
 
 const LearnFlashCardPage: React.FC = () => {

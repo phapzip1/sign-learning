@@ -15,8 +15,9 @@ namespace Service.Services
             public Models.Topic Topic { get; set; } = Models.Topic.Other;
         }
 
-        Task<DTOs.PageResultDTO<Models.Word>> ListAsync(string? search, Models.Topic? topic, Models.Level? level, int page, int pageSize);
+        Task<DTOs.PageResultDTO<Models.Word>> ListAsync(string? search, Models.Topic? topic, Models.Level[]? levels, DTOs.SortDTO sort, int page, int pageSize);
         Task<Models.Word> GetAsync(uint id);
+        Task<Models.Deck?> GetDeckAsync(uint id, string uid);
         Task<Models.Word> CreateAsync(WordUpsertParams args);
         Task<Models.Word> UpdateAsync(uint id, WordUpsertParams args);
         Task DeleteAsync(uint id);
@@ -41,6 +42,17 @@ namespace Service.Services
             await mDbContext.SaveChangesAsync();
 
             return word;
+        }
+
+        public async Task<Models.Deck?> GetDeckAsync(uint wordId, string uid)
+        {
+            var deck = await mDbContext.Cards
+                                        .AsNoTracking()
+                                        .Where(x => x.WordId == wordId && x.Deck.UserId == uid)
+                                        .Select(x => x.Deck)
+                                        .FirstOrDefaultAsync();
+
+            return deck;
         }
 
         public async Task DeleteAsync(uint id)
@@ -68,34 +80,61 @@ namespace Service.Services
             return word;
         }
 
-        public async Task<DTOs.PageResultDTO<Models.Word>> ListAsync(string? search, Models.Topic? topic, Models.Level? level, int page, int pageSize)
+        public async Task<DTOs.PageResultDTO<Models.Word>> ListAsync(string? search, Models.Topic? topic, Models.Level[]? levels, DTOs.SortDTO sort, int page, int pageSize)
         {
-            page = Math.Clamp(page, 1, 10000);
+            page = Math.Max(page, 1);
+
             pageSize = Math.Clamp(pageSize, 1, 100);
 
             var query = mDbContext.Words
-                                .AsNoTracking()
-                                .AsQueryable();
+                .AsNoTracking()
+                .AsQueryable();
+
             if (!string.IsNullOrWhiteSpace(search))
             {
-                var term = search.Trim();
-                query = query.Where(w => w.Value.Contains(term) || w.Meaning.Contains(term));
+                search = search.Trim();
+
+                query = query.Where(w => w.Value.Contains(search));
             }
 
-            if (topic.HasValue) query = query.Where(w => w.Topic == topic.Value);
-            if (level.HasValue) query = query.Where(w => w.Level == level.Value);
+            if (levels is { Length: > 0 })
+            {
+                query = query.Where(w => levels.Contains(w.Level));
+            }
+
+            if (topic.HasValue)
+            {
+                query = query.Where(w => w.Topic == topic.Value);
+            }
+
+            query = sort switch
+            {
+                DTOs.SortDTO.AlphabetAscending => query.OrderBy(w => w.Value),
+                DTOs.SortDTO.AlphabetDescending => query.OrderByDescending(w => w.Value),
+                DTOs.SortDTO.DifficultyIncrease => query.OrderBy(w => w.Level).ThenBy(w => w.Value),
+                DTOs.SortDTO.DifficultyDescrease => query.OrderByDescending(w => w.Level).ThenBy(w => w.Value),
+                DTOs.SortDTO.Newest => query.OrderByDescending(w => w.CreatedAt).ThenBy(w => w.Value),
+                DTOs.SortDTO.Oldest => query.OrderBy(w => w.CreatedAt).ThenBy(w => w.Value),
+                _ => throw new NotImplementedException(),
+            };
 
             var total = await query.CountAsync();
-            List<Models.Word> items = await query.OrderBy(w => w.Id)
-                                .Skip((page - 1) * pageSize)
-                                .Take(pageSize)
-                                .ToListAsync() ?? throw new Exception("Unhandled exception");
+
+            var items = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync() ?? throw new Exception("Unhandled exception");
 
             return new DTOs.PageResultDTO<Models.Word>
             {
                 Page = page,
                 PageSize = pageSize,
                 Total = total,
+                TotalPages = total == 0
+                    ? 0
+                    : (int)Math.Ceiling(
+                        total / (double)pageSize),
+
                 Items = items
             };
 

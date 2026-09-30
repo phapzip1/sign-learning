@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { ClientOnly, createFileRoute, Link } from "@tanstack/react-router";
 import {
     ArrowRight,
     Camera,
@@ -8,8 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import WordCard from "@/src/components/word-card";
-import { MOCKTOPICS, MOCKWORDS } from "@/src/lib/mock";
+import SignSearch from "@/src/components/sign-seach";
+import { MOCKTOPICS } from "@/src/lib/mock";
 
 
 const DashboardPage: React.FC = () => {
@@ -54,12 +54,15 @@ const DashboardPage: React.FC = () => {
                             </span>
                         </div>
                         <div className="size-full flex flex-row gap-2 border-muted-foreground border-dashed">
-                            <Button
+                            {/* <Button
                                 variant="secondary"
                                 className="rounded"
                             >
                                 Start your camera
-                            </Button>
+                            </Button> */}
+                            <ClientOnly>
+                                <SignSearch />
+                            </ClientOnly>
                         </div>
                     </CardContent>
                 </Card>
@@ -82,11 +85,11 @@ const DashboardPage: React.FC = () => {
                             </Link>
                         </div>
                         <div className="size-full flex flex-row gap-4 border-muted-foreground border-dashed">
-                            {
+                            {           
                                 MOCKTOPICS.map((topic) => {
                                     const Icon = topic.icon;
                                     return (
-                                        <Link to={"/topics/" + topic.id} className="block py-2">
+                                        <Link key={topic.id} to={"/topics/" + topic.id} className="block py-2">
                                             <Card id={`${topic.id}`} className="rounded h-full">
                                                 <CardContent className="max-w-45 flex flex-col gap-2 items-center">
                                                     <Avatar className="size-14 flex justify-center items-center fill-accent">
@@ -99,41 +102,6 @@ const DashboardPage: React.FC = () => {
                                                 </CardContent>
                                             </Card>
                                         </Link>
-                                    );
-                                })
-                            }
-                        </div>
-                    </CardContent>
-                </Card>
-            </section>
-            <section>
-                <Card className="rounded flex-4">
-                    <CardContent className="flex flex-col gap-3">
-                        <div className="flex flex-row items-center-safe gap-4 justify-between">
-                            <span>
-                                <h3 className="text-xl font-semibold my-2.5">Trending words</h3>
-                            </span>
-                            <Link
-                                to="/dictionary"
-                                className="flex flex-row gap-1 justify-end-safe items-center"
-
-                            >
-                                View all
-                                <ArrowRight className="size-4" />
-                            </Link>
-                        </div>
-                        <div className="size-full flex flex-row gap-2 overflow-visible">
-                            {
-                                MOCKWORDS.map((word) => {
-
-                                    return (
-                                        <WordCard
-                                            key={word.id}
-                                            id={word.id}
-                                            title={word.title}
-                                            description={word.description}
-                                            thumbnail={word.demo}
-                                        />
                                     );
                                 })
                             }

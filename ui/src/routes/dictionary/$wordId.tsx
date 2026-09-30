@@ -1,28 +1,36 @@
+import React from "react";
 import { Heart, List } from "lucide-react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { MOCKWORDS } from "@/src/lib/mock";
 import SignDemo from "@/src/components/sign-demo";
 import { Button } from "@/components/ui/button";
-import WordCard from "@/src/components/word-card";
+import { getWord } from "@/src/lib/api";
+import AddToCollectionButton from "@/src/components/add-to-collection-button";
 
 const WordDetailPage: React.FC = () => {
-    const word = MOCKWORDS[0];
+    const word = Route.useLoaderData();
 
     return (
         <div className="flex flex-col gap-4 w-full">
-            <h2 className="text-4xl font-semibold">Thank you</h2>
+            <h2 className="text-4xl font-semibold">{ }</h2>
+            <div className="flex flex-row justify-between gap-40">
+                <p>
+                    <span className="font-semibold">Definition:</span>
+                    {" "}
+                    {word.description}
+                </p>
+                <img
+                    className="w-100 aspect-video object-contain"
+                    src={word.cover}
+                />
+            </div>
             <div className="flex flex-row gap-2">
-                <Badge>Emotions</Badge>
-                <Badge>Flex</Badge>
-                <Badge></Badge>
+
             </div>
             <div className="flex flex-row gap-8">
                 <SignDemo
                     className="flex-3"
-                    src={word.video}
+                    src={word.demo}
 
                 />
                 <div className="flex flex-col flex-2 justify-between">
@@ -33,46 +41,27 @@ const WordDetailPage: React.FC = () => {
                         </span>
                         <div className="flex flex-col gap-4 pt-4">
                             {
-                                word.instruction.map((instruction, index) => {
-
-                                    return (
-                                        <Card key={index} className="rounded p-0 min-h-18">
-                                            <CardContent className="flex flex-row gap-2 px-3 py-1 items-center-safe">
-                                                <Avatar className="flex items-center justify-center size-15 text-xl font-medium">
-                                                    {index + 1}
-                                                </Avatar>
-                                                <p >{instruction}</p>
-                                            </CardContent>
-                                        </Card>
-                                    );
-                                })
+                                word.instruction
                             }
                         </div>
                     </div>
-                    <Button
-                        variant="outline"
-                        className="flex flex-row"
-                    >
-                        <Heart />
-                        Add to favorite
-                    </Button>
+
+                    <AddToCollectionButton
+                        wordId={word.id}
+                        trigger={
+                            <Button
+                                variant="outline"
+                                className="flex flex-row"
+                            >
+                                <Heart />
+                                Add to a collection
+                            </Button>
+                        }
+                    />
                 </div>
             </div>
             <h3 className="text-xl font-medium">Related words</h3>
             <div className="flex flex-row gap-4">
-                {
-                    MOCKWORDS.map((word) => {
-
-                        return (
-                            <WordCard
-                                id={word.id}
-                                title={word.title}
-                                description={word.description}
-                                thumbnail={word.video}
-                            />
-                        );
-                    })   
-                }
             </div>
         </div>
     );
@@ -80,4 +69,19 @@ const WordDetailPage: React.FC = () => {
 
 export const Route = createFileRoute("/dictionary/$wordId")({
     component: WordDetailPage,
+    loader: async ({ params }) => {
+        const { wordId } = params;
+        const post = await getWord(wordId);
+        return post;
+    },
+    pendingComponent: () => {
+
+        return (
+            <div className="p-4 animate-pulse">
+                <div className="h-6 bg-gray-200 rounded w-1/4 mb-4"></div>
+                <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
+                <div className="h-4 bg-gray-200 rounded w-full"></div>
+            </div>
+        );
+    }
 });

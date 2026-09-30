@@ -1,68 +1,56 @@
+import os
+import aiofiles
 import uvicorn
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, Depends, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.concurrency import run_in_threadpool
 from inference import Inference
 
 origins = [
     "http://localhost:3000"
 ]
 
-class Routes:
-    def __init__(self, inference : Inference):
-        self.inference = inference
+def _get_inference():
+    prediction_fn = Inference.load_prediction_fn("./assets/model.tflite")
+    labels = Inference.load_label_map("./assets/sign_to_prediction_index_map.json")
+    inference = Inference(prediction_fn=prediction_fn, idx_to_sign=labels)
 
-    def _health_check(self):
-        return { "health-check": "oke" }
+    return inference
 
-    def _predict(self):
-        result = self.inference.run_on_holistic_result()
+_app = FastAPI()
 
+@_app.get("/health")
+def _health_check():
+    return { "health-check": "oke" }
+
+@_app.post("/predict")
+async def _predict(video: UploadFile = File(...),  infernce: Inference = Depends(_get_inference)):
+    try:
+        async with aiofiles.tempfile.NamedTemporaryFile("wb", delete=False) as temp:
+            try:
+                contents = await video.read()
+                await temp.write(contents)
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=e)
+            finally:
+                await video.close()
+
+        result = await run_in_threadpool(infernce.run_on_video_file, temp.name, 5)
         return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=e)
+    finally:
+        os.remove(temp.name)
 
-    def _words(self):
-        words_dict = self.inference.idx_to_sign
-
-        return [{"id": key, "word": words_dict[key]} for key in words_dict]
-
-    def get_router(self) -> APIRouter:
-        router = APIRouter()
-
-        router.add_api_route(
-            "/health",
-            self._health_check,
-            methods = ["GET"]
-        )
-
-        router.add_api_route(
-            "/predict",
-            self._predict,
-            methods = ["POST"]
-        )
-
-        router.add_api_route(
-            "/words",
-            self._words,
-            methods= ["GET"]
-        )
-        return router
-        
-
-class App:
-    def __init__(self, db_url, http_addr = "127.0.0.1", http_port = 8080):
-        self.port = http_port
-        self.http_addr = http_addr
-        self.db_url = db_url
-        self.app = FastAPI()
-        self.app.add_middleware(
+class App:        
+    @staticmethod
+    def run(http_addr = "127.0.0.1", http_port = 8080):
+        _app.add_middleware(
             CORSMiddleware,
             allow_origins=origins,
             allow_credentials=True,
             allow_methods=["*"],
             allow_headers=["*"],
         )
-
-    def run(self, inference):
-        routes = Routes(inference)
-        self.app.include_router(routes.get_router())
-        uvicorn.run(self.app, port=self.port, host=self.http_addr)
+        uvicorn.run(_app, port=http_port, host=http_addr)
         pass

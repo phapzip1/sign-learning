@@ -59,7 +59,7 @@ namespace Service.Controllers
             try
             {
                 await mService.DeleteAsync(UserId, deckId);
-                return NoContent();
+                return Ok();
             }
             catch (KeyNotFoundException) { return NotFound(); }
             catch (Utils.ConflictException e) { return Conflict(e.Message); }

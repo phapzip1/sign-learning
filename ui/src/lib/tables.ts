@@ -1,6 +1,7 @@
 import {
     columnFilteringFeature,
     columnVisibilityFeature,
+    createFilteredRowModel,
     createPaginatedRowModel,
     rowPaginationFeature,
     rowSelectionFeature,
@@ -16,6 +17,7 @@ const baseTableFeatures = tableFeatures({
   rowSelectionFeature,
   rowSortingFeature,
   paginatedRowModel: createPaginatedRowModel(),
+  filteredRowModel: createFilteredRowModel(),
 });
 
 export {

@@ -7,13 +7,10 @@ import {
     Outlet,
     Scripts,
     createRootRoute,
-    useNavigate,
 } from "@tanstack/react-router";
 import appCss from "@/src/styles/app.css?url";
 import { ClerkProvider } from "@clerk/tanstack-react-start";
 import NavList from "@/src/components/nav-list";
-import { useApp } from "@/src/providers/app-provider";
-import { useWordStore } from "@/src/providers/word-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 const RootDocument = ({ children }: Readonly<{
@@ -40,18 +37,7 @@ const RootDocument = ({ children }: Readonly<{
 
 
 const RootLayout: React.FC = () => {
-    // const { role, setSignedIn, signedIn, setRole } = useApp();
-    const user = useApp((state) => state.user);
-    const clearUser = useApp((state) => state.clearUser);
-    const navigate = useNavigate();
 
-    const fetchWords = useWordStore((state) => state.fetchWords);
-    const isLoading = useWordStore((state) => state.isLoading);
-
-
-    useEffect(() => {
-        fetchWords();
-    }, [fetchWords]);
 
     return (
         <RootDocument>

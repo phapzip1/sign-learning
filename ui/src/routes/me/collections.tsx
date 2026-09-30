@@ -15,14 +15,82 @@ import {
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import WordTable from "@/src/components/word-table";
-import { MOCKCOLLECTIONS, MOCKSTOREDWORDS } from "@/src/lib/mock";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
+} from "@/components/ui/dialog";
+import { RemoteCollectionCard } from "@/src/types/collection.type";
+import { deleteCollection, getCards, getCollections } from "@/src/lib/api";
+import { useAuth } from "@clerk/tanstack-react-start";
+import { RemoteWordCard } from "@/src/types/word.type";
+import DeckEditor from "@/src/components/deck-editor";
 
 const FavoritesPage: React.FC = () => {
   const navigate = useNavigate();
   const params = Route.useSearch();
+  const { getToken } = useAuth();
+
   const [search, setSearch] = React.useState<string>("");
-  const [selectedRows, setSelectedRows] = React.useState<number[]>([]);
+  const [collections, setCollections] = React.useState<RemoteCollectionCard[]>([]);
+  const [cards, setCards] = React.useState<RemoteWordCard[]>([]);
+  const [searchCollection, setSearchCollection] = React.useState<string>("");
+  const deleteDialogRef = React.useRef<any>(null);
+
+  const fetchCollection = async () => {
+    try {
+      const token = await getToken();
+      const data = await getCollections(`Bearer ${token}`);
+      setCollections(() => data);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  React.useEffect(() => {
+    fetchCollection();
+  }, []);
+
+  React.useEffect(() => {
+    const fetchCards = async () => {
+      if (params?.collection && params.collection.length > 0) {
+        try {
+          const token = await getToken();
+          const data = await getCards(params.collection, `Bearer ${token}`);
+          setCards(() => data);
+        } catch (error) {
+          console.error(error);
+        }
+      }
+    }
+    fetchCards();
+  }, [params]);
+
+  const collection = collections.find(col => col.id === params?.collection);
+
+
+  const delCollection = async () => {
+    if (!collection) {
+      return;
+    }
+
+    try {
+      const token = await getToken();
+      await deleteCollection(collection.id, `Bearer ${token}`);
+
+      deleteDialogRef.current?.close();
+      navigate({ from: "/me/collections", search: { collection: "" } });
+      fetchCollection();
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
 
   return (
     <div className="flex flex-row gap-4 w-400 h-full">
@@ -31,7 +99,6 @@ const FavoritesPage: React.FC = () => {
           <SidebarProvider
           >
             <Sidebar
-              // variant="inset"
               className="bg-transparent "
               collapsible="none"
             >
@@ -40,10 +107,22 @@ const FavoritesPage: React.FC = () => {
               </SidebarHeader>
               <SidebarContent>
                 <SidebarGroup>
-                  <Button className="flex flex-row items-center justify-center gap-4">
-                    <Plus />
-                    New collection
-                  </Button>
+                  <DeckEditor
+                    trigger={
+                      <Button
+                        className="flex flex-row items-center justify-center gap-4"
+                      >
+                        <Plus />
+                        New collection
+                      </Button>
+                    }
+                    onCompleted={() => {
+                      console.log("vao");
+
+                      fetchCollection();
+
+                    }}
+                  />
                 </SidebarGroup>
                 <Separator />
                 <SidebarGroup>
@@ -51,29 +130,16 @@ const FavoritesPage: React.FC = () => {
                     placeholder="...Search collection"
                     className="border"
                     name="search-collection"
+                    value={searchCollection}
+                    onChange={e => setSearchCollection(e.target.value)}
                   />
                 </SidebarGroup>
                 <Separator />
                 <SidebarGroup
                   className="gap-2"
                 >
-                  <SidebarMenuButton
-                    className="font-medium"
-                    variant="outline"
-                    isActive={!params || params.collection === -1}
-                    onClick={() => {
-                      navigate({
-                        from: "/me/collections",
-                        search: {
-                          collection: -1
-                        }
-                      })
-                    }}
-                  >
-                    ALL
-                  </SidebarMenuButton>
                   {
-                    MOCKCOLLECTIONS.map((collection) => {
+                    collections.filter(x => searchCollection.length === 0 || x.name.includes(searchCollection)).map((collection) => {
 
                       return (
                         <SidebarMenuButton
@@ -90,7 +156,7 @@ const FavoritesPage: React.FC = () => {
                             })
                           }}
                         >
-                          {collection.title}
+                          {collection.name}
                         </SidebarMenuButton>
                       );
                     })
@@ -102,136 +168,147 @@ const FavoritesPage: React.FC = () => {
         </CardContent>
       </Card>
       <div className="flex flex-col gap-4 flex-1">
-        <Card className="rounded p-0 min-h-40">
-          <CardContent className="flex flex-row justify-between py-4 h-full">
-            <div className="flex flex-col justify-between flex-1">
-              <span>
-                <h2 className="text-3xl font-semibold">
-                  Title
-                </h2>
-                <p className="mt-2">Description</p>
-              </span>
-              <div className="flex flex-row gap-6 text-muted-foreground items-center">
-                <span className="flex flex-row gap-2">
-                  <FileText className="size-4.5" />
-                  <p>12 words</p>
-                </span>
-                <span className="flex flex-row gap-2">
-                  <Calendar className="size-4.5" />
-                  <p>Updated 12:00 Aug 10, 2024</p>
-                </span>
-              </div>
-            </div>
-            <div className="flex flex-row gap-4 items-start h-fit">
+        {
+          !collection
+            ?
+            <Card>
+              <CardContent className="flex flex-row justify-center items-center">
+                "Select a collection to continue"
+              </CardContent>
+            </Card>
+            : <>
+              <Card className="rounded p-0 min-h-40">
+                <CardContent className="flex flex-row justify-between py-4 h-full">
+                  <div className="flex flex-col justify-between flex-1">
+                    <span>
+                      <h2 className="text-3xl font-semibold">
+                        {collection.name}
+                      </h2>
+                      <p className="mt-2">{collection.description}</p>
+                    </span>
+                    <div className="flex flex-row gap-6 text-muted-foreground items-center">
+                      <span className="flex flex-row gap-2">
+                        <FileText className="size-4.5" />
+                        <p>{cards.length} words</p>
+                      </span>
+                      <span className="flex flex-row gap-2">
+                        <Calendar className="size-4.5" />
+                        <p>Updated {new Date().toISOString()}</p>
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex flex-row gap-4 items-start h-fit">
 
-              <Sheet
-              >
-                <SheetTrigger render={
-                  <Button
-                    variant="outline"
-                  >
-                    Edit
-                  </Button>
-                }>
-
-                </SheetTrigger>
-                <SheetContent>
-                  <SheetHeader>
-                    <SheetTitle>Are you absolutely sure?</SheetTitle>
-                    <SheetDescription>This action cannot be undone.</SheetDescription>
-                  </SheetHeader>
-                </SheetContent>
-              </Sheet>
-              <Dialog>
-                <DialogTrigger className={buttonVariants({ variant: "destructive" })}>
-                  Delete
-                </DialogTrigger>
-                <DialogContent showCloseButton={false}>
-                  <DialogHeader>
-                    <DialogTitle>
-                      Are you sure?
-                    </DialogTitle>
-                    <DialogDescription>
-                      This action cannot be reverted!
-                    </DialogDescription>
-                  </DialogHeader>
-                  <DialogFooter className="flex flex-row justify-between">
-                    <DialogClose
-                      render={
-                        <Button variant="secondary" type="button">
-                          Cancel
+                    <DeckEditor
+                      title={collection.name}
+                      description={collection.description}
+                      id={collection.id}
+                      trigger={
+                        <Button variant="secondary">
+                          Edit
                         </Button>
                       }
+                      onCompleted={() => {
+                        console.log("vao");
+
+                        fetchCollection();
+
+                      }}
+                    />
+                    <Dialog
+                      actionsRef={deleteDialogRef}
                     >
-                    </DialogClose>
-                    <Button variant="destructive">
-                      Delete
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="flex flex-row rounded p-0 flex-1">
-          <CardContent className="flex flex-col size-full py-4 gap-4">
-            <div className="flex flex-row w-full gap-4">
-              <Input
-                className=""
-                placeholder="Search words in this collection"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-              {
-                selectedRows.length !== 0 && (
-                  <Dialog>
-                    <DialogTrigger className={buttonVariants({ variant: "destructive" })}>
-                      Delete selected
-                    </DialogTrigger>
-                    <DialogContent showCloseButton={false}>
-                      <DialogHeader>
-                        <DialogTitle>
-                          Are you sure?
-                        </DialogTitle>
-                        <DialogDescription>
-                          This action cannot be reverted!
-                        </DialogDescription>
-                      </DialogHeader>
-                      <DialogFooter className="flex flex-row justify-between">
-                        <DialogClose
-                          render={
-                            <Button variant="secondary" type="button">
-                              Cancel
-                            </Button>
-                          }
-                        >
-                        </DialogClose>
-                        <Button variant="destructive">
-                          Delete
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                )
-              }
-            </div>
-            <WordTable
-              className="w-full flex-1"
-              data={MOCKSTOREDWORDS}
-              onSelectedChange={(data) => setSelectedRows(data.map(row => row.id))}
-            />
-          </CardContent>
-        </Card>
+                      <DialogTrigger className={buttonVariants({ variant: "destructive" })}>
+                        Delete
+                      </DialogTrigger>
+                      <DialogContent showCloseButton={false}>
+                        <DialogHeader>
+                          <DialogTitle>
+                            Are you sure?
+                          </DialogTitle>
+                          <DialogDescription>
+                            This action cannot be reverted!
+                          </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter className="flex flex-row justify-between">
+                          <DialogClose
+                            render={
+                              <Button variant="secondary" type="button">
+                                Cancel
+                              </Button>
+                            }
+                          >
+                          </DialogClose>
+                          <Button
+                            variant="destructive"
+                            onClick={delCollection}
+                          >
+                            Delete
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="flex flex-row rounded p-0 flex-1">
+                <CardContent className="flex flex-col size-full py-4 gap-4">
+                  <div className="flex flex-row w-full gap-4">
+                    <Input
+                      className=""
+                      placeholder="Search words in this collection"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
+                    {/* {
+                      selectedRows.length !== 0 && (
+                        <Dialog>
+                          <DialogTrigger className={buttonVariants({ variant: "destructive" })}>
+                            Delete selected
+                          </DialogTrigger>
+                          <DialogContent showCloseButton={false}>
+                            <DialogHeader>
+                              <DialogTitle>
+                                Are you sure?
+                              </DialogTitle>
+                              <DialogDescription>
+                                This action cannot be reverted!
+                              </DialogDescription>
+                            </DialogHeader>
+                            <DialogFooter className="flex flex-row justify-between">
+                              <DialogClose
+                                render={
+                                  <Button variant="secondary" type="button">
+                                    Cancel
+                                  </Button>
+                                }
+                              >
+                              </DialogClose>
+                              <Button
+                                variant="destructive"
+                                onClick={() => {
+                                  
+                                }}
+                              >
+                                Delete
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      )
+                    } */}
+                  </div>
+                  <WordTable
+                    className="w-full flex-1"
+                    data={cards}
+                    search={search}
+                  // onSelectedChange={(data) => selectRows(data.map(row => row.id))}
+                  />
+                </CardContent>
+              </Card>
+            </>
+        }
       </div>
-      <Sheet
-      >
-        <SheetContent>
-          <SheetHeader>
-            <SheetTitle>Are you absolutely sure?</SheetTitle>
-            <SheetDescription>This action cannot be undone.</SheetDescription>
-          </SheetHeader>
-        </SheetContent>
-      </Sheet>
     </div>
   );
 }
@@ -241,7 +318,9 @@ export const Route = createFileRoute("/me/collections")({
   validateSearch: (search: Record<string, unknown>) => {
     if (search) {
       return {
-        collection: search.collection || -1,
+        collection: search["collection"] as string,
+      } satisfies {
+        collection?: string;
       }
     }
   }

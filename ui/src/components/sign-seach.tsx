@@ -1,3 +1,4 @@
+import React from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
     Dialog,
@@ -7,17 +8,20 @@ import {
     DialogTitle,
     DialogTrigger
 } from "@/components/ui/dialog";
-import React from "react";
+import { searchBySign } from "@/src/lib/api";
 
-const options = { mimeType: "video/webm; codecs=vp9" };
+const options = { mimeType: "video/mp4; codecs=vp9" };
 
-const SignSearch: React.FC = () => {
+const SignSearch: React.FC<{
+    onSearchComplete?: (keyword: Record<string, number>) => void;
+}> = ({ onSearchComplete }) => {
     const [stream, setStream] = React.useState<MediaStream | null>(null);
     const videoRef = React.useRef<HTMLVideoElement>(null);
     const [mediaRecorder, setMediaRecorder] = React.useState<MediaRecorder | null>(null);
-    const recordedData = React.useRef<{ timeout?: NodeJS.Timeout, data: Blob[] }>({
-        data: []
-    });
+    const recordTimer = React.useRef<NodeJS.Timeout | null>(null);
+
+    const [loading, setLoading] = React.useState(false);
+
 
     const closeVideo = () => {
         if (stream) {
@@ -26,6 +30,7 @@ const SignSearch: React.FC = () => {
             }
 
             setStream(() => null);
+            setLoading(() => false);
         }
     }
 
@@ -38,28 +43,48 @@ const SignSearch: React.FC = () => {
             videoRef.current!.srcObject = stream;
             setStream(() => stream);
         } catch (error) {
-            console.error("Failed to start camera");
+            console.error("Failed to start camera" + error);
         }
     }
 
-    const handleDataAvailable = (ev: BlobEvent) => {
-        recordedData.current.data.push(ev.data);
+    const handleDataAvailable = async (ev: BlobEvent) => {
+        try {
+            if (ev.data.size > 0) {
+                const data = ev.data;
+
+                setLoading(() => true);
+
+                try {
+                    const result = await searchBySign([data]);
+
+                    onSearchComplete?.(result);
+                } catch (err: any) {
+                    console.error(`Error calling API: ${err.message}`)
+                }
+
+            }
+
+
+        } catch (err: any) {
+            console.error(`Error calling API: ${err.message}`)
+        }
+
+        setLoading(() => false);
     }
 
 
     const stopRecord = async () => {
-        if (mediaRecorder) {
-            mediaRecorder.stop();
-            recordedData.current.data = [];
+        if (mediaRecorder && !loading) {
 
-            if (recordedData.current.timeout) {
-                clearTimeout(recordedData.current.timeout);
-                recordedData.current.timeout = undefined;
+
+            if (recordTimer.current) {
+                clearTimeout(recordTimer.current);
+                recordTimer.current = null;
             }
 
-
-
+            mediaRecorder.stop();
             setMediaRecorder(() => null);
+
         }
     }
     const startRecord = async () => {
@@ -70,9 +95,9 @@ const SignSearch: React.FC = () => {
             mr.ondataavailable = handleDataAvailable;
             const handler = setTimeout(() => {
                 stopRecord();
-            });
+            }, 10000);
 
-            recordedData.current.timeout = handler;
+            recordTimer.current = handler;
             setMediaRecorder(() => mr);
         }
     }
@@ -86,6 +111,12 @@ const SignSearch: React.FC = () => {
                 } else {
                     closeVideo();
                     stopRecord();
+                }
+            }}
+            onOpenChangeComplete={(open) => {
+                if (!open) {
+                    stopRecord();
+                    closeVideo();
                 }
             }}
         >
@@ -104,7 +135,7 @@ const SignSearch: React.FC = () => {
                 </DialogHeader>
                 <div className="flex flex-col gap-4">
                     <video
-                        className="w-full aspect-video border border-dashed"
+                        className="w-full aspect-video border border-dashed scale-x-[-1]"
                         ref={videoRef}
                         autoPlay
                     />
@@ -117,8 +148,15 @@ const SignSearch: React.FC = () => {
                                 startRecord();
                             }
                         }}
+                        disabled={loading}
                     >
-                        {mediaRecorder ? "Stop recording" : "Start recording"}
+                        {
+                            loading ?
+                                "Loading..." :
+                                mediaRecorder ?
+                                    "Stop recording" :
+                                    "Start recording"
+                        }
                     </Button>
                 </div>
             </DialogContent>

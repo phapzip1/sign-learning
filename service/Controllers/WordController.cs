@@ -1,10 +1,10 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Service.Controllers
 {
     [ApiController]
-    [Authorize]
     [Route("api/words")]
     public sealed class WordController(Services.IWordService service) : ControllerBase
     {
@@ -14,15 +14,26 @@ namespace Service.Controllers
         public async Task<ActionResult<DTOs.PageResultDTO<Models.Word>>> List(
             [FromQuery] string? search,
             [FromQuery] Models.Topic? topic,
-            [FromQuery] Models.Level? level,
+            [FromQuery] Models.Level[]? levels,
             [FromQuery] int page = 1,
-            [FromQuery] int pageSize = 20
-        ) => Ok(await mService.ListAsync(search, topic, level, page, pageSize));
+            [FromQuery] int pageSize = 20,
+            [FromQuery] DTOs.SortDTO sort = DTOs.SortDTO.AlphabetAscending
+        ) => Ok(await mService.ListAsync(search, topic, levels, sort, page, pageSize));
 
         [HttpGet("{id}")]
         public async Task<ActionResult<Models.Word>> Get(uint id)
         {
             try { return Ok(await mService.GetAsync(id)); }
+            catch (KeyNotFoundException) { return NotFound(); }
+        }
+
+        [HttpGet("{id}/deck")]
+        [Authorize]
+        public async Task<ActionResult<Models.Deck>> GetWordDeck(uint id)
+        {
+            var UserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (UserId is null) return Unauthorized();
+            try { return Ok(await mService.GetDeckAsync(id, UserId)); }
             catch (KeyNotFoundException) { return NotFound(); }
         }
 

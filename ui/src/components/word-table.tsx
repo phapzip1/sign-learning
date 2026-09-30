@@ -1,5 +1,15 @@
 import React from "react";
-import { createColumnHelper, type SortingState, useTable } from "@tanstack/react-table";
+import { Link } from "@tanstack/react-router";
+import { ArrowUpDown, ArrowUpRight } from "lucide-react";
+import {
+    createColumnHelper,
+    FilterFn,
+    OnChangeFn,
+    RowSelectionState,
+    type
+        SortingState,
+    useTable
+} from "@tanstack/react-table";
 import {
     Table,
     TableBody,
@@ -9,56 +19,74 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { StoredWordItem } from "@/src/types/word.type";
-import { baseTableFeatures } from "@/src/lib/tables";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowUpDown, ArrowUpRight } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { baseTableFeatures } from "@/src/lib/tables";
+import { RemoteWordCard } from "@/src/types/word.type";
 
 type WordTableProps = {
-    data: StoredWordItem[];
+    data: RemoteWordCard[];
     className?: string;
-    onSelectedChange?: (data: StoredWordItem[]) => void;
     search?: string;
+    selection?: RowSelectionState;
+    onSelectedChange?: OnChangeFn<RowSelectionState>;
 }
 
-const columnHelper = createColumnHelper<typeof baseTableFeatures, StoredWordItem>();
+const columnHelper = createColumnHelper<typeof baseTableFeatures, RemoteWordCard>();
+
+const myCustomFilterFn: FilterFn<typeof baseTableFeatures, RemoteWordCard> = (
+    row,
+    columnId,
+    filterValue,
+) => {
+
+    const search = String(filterValue ?? "")
+        .trim()
+        .toLowerCase();
+
+    if (!search) return true;
+
+    return String(row.getValue(columnId) ?? "")
+        .toLowerCase()
+        .includes(search);
+
+}
 
 const WordTable: React.FC<WordTableProps> = ({
     data,
     className,
     onSelectedChange,
     search,
+    selection
 }) => {
     const actColumns = React.useMemo(() => columnHelper.columns([
-        columnHelper.display({
-            "id": "select",
-            header: () => {
+        // columnHelper.display({
+        //     "id": "select",
+        //     header: () => {
 
-                return (
-                    <Checkbox
-                        checked={table.getIsAllPageRowsSelected()}
-                        indeterminate={
-                            table.getIsSomePageRowsSelected() && !table.getIsAllPageRowsSelected()
-                        }
-                        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-                        aria-label="Select all"
-                    />
-                );
-            },
-            cell: ({ row }) => {
-                
-                return (
-                    <Checkbox
-                        checked={row.getIsSelected()}
-                        onCheckedChange={(value) => row.toggleSelected(!!value)}
-                        aria-label="Select row"
-                    />
-                );
-            }
-        }),
-        columnHelper.accessor("word.title", {
+        //         return (
+        //             <Checkbox
+        //                 checked={table.getIsAllPageRowsSelected()}
+        //                 indeterminate={
+        //                     table.getIsSomePageRowsSelected() && !table.getIsAllPageRowsSelected()
+        //                 }
+        //                 onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+        //                 aria-label="Select all"
+        //             />
+        //         );
+        //     },
+        //     cell: ({ row }) => {
+        //         return (
+        //             <Checkbox
+        //                 checked={row.getIsSelected()}
+        //                 onCheckedChange={(value) => row.toggleSelected(!!value)}
+        //                 aria-label="Select row"
+        //             />
+        //         );
+        //     }
+        // }),
+        columnHelper.accessor("title", {
+            filterFn: myCustomFilterFn,
             header: ({ column }) => {
 
                 return (
@@ -72,8 +100,14 @@ const WordTable: React.FC<WordTableProps> = ({
                 );
             }
         }),
-        columnHelper.accessor("word.description", {
+        columnHelper.accessor("meaning", {
             header: "Description",
+
+            cell: ({ row }) => {
+                return (
+                    <p className="max-w-80 truncate">{row.original.meaning}</p>
+                );
+            }
         }),
         columnHelper.accessor("state", {
             header: ({ column }) => {
@@ -89,7 +123,7 @@ const WordTable: React.FC<WordTableProps> = ({
                 );
             }
         }),
-        columnHelper.accessor("word.level", {
+        columnHelper.accessor("level", {
             header: ({ column }) => {
 
                 return (
@@ -108,13 +142,22 @@ const WordTable: React.FC<WordTableProps> = ({
             header: "Actions",
             cell: ({ row }) => {
                 return (
-                    <Link to={"/dictionary/" + row.original.id} className={buttonVariants({ size: "icon-sm", variant: "outline" })} >
-                        <ArrowUpRight />
-                    </Link>
+                    <div className="flex flex-row gap-4">
+                        <Link to={"/dictionary/" + row.original.wordId} className={buttonVariants({ size: "icon-sm", variant: "outline" })} >
+                            <ArrowUpRight />
+                        </Link>
+                    </div>
                 )
             }
         })
     ]), []);
+
+    const columnFilters = React.useMemo(() => [
+        {
+            id: "title",
+            value: search ?? "",
+        },
+    ], [search]);
 
     const [sorting, setSorting] = React.useState<SortingState>([]);
 
@@ -123,12 +166,13 @@ const WordTable: React.FC<WordTableProps> = ({
         columns: actColumns,
         data,
         onSortingChange: setSorting,
-        // onRowSelectionChange: (updater) => {
-        //     onSelectedChange?.(table.getSelectedRowModel().rows.map(row => row.original));
-        // },
+        onRowSelectionChange: onSelectedChange,
         state: {
             sorting,
-        }
+            rowSelection: selection,
+            columnFilters
+        },
+
     });
 
     return (

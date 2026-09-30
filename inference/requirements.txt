@@ -1,0 +1,6 @@
+numpy   
+mediapipe==0.10.21
+opencv-python
+ai-edge-litert
+fastapi[standard]
+aiofiles
