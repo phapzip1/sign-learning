@@ -1,11 +1,11 @@
 import React from "react";
 import { Heart, List } from "lucide-react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Badge } from "@/components/ui/badge";
 import SignDemo from "@/src/components/sign-demo";
 import { Button } from "@/components/ui/button";
 import { getWord } from "@/src/lib/api";
 import AddToCollectionButton from "@/src/components/add-to-collection-button";
+import { Show } from "@clerk/tanstack-react-start";
 
 const WordDetailPage: React.FC = () => {
     const word = Route.useLoaderData();
@@ -14,11 +14,14 @@ const WordDetailPage: React.FC = () => {
         <div className="flex flex-col gap-4 w-full">
             <h2 className="text-4xl font-semibold">{ }</h2>
             <div className="flex flex-row justify-between gap-40">
-                <p>
-                    <span className="font-semibold">Definition:</span>
-                    {" "}
-                    {word.description}
-                </p>
+                <div className="flex flex-col gap-4">
+                    <h2 className="text-5xl font-semibold">{word.title}</h2>
+                    <p>
+                        <span className="font-semibold">Definition:</span>
+                        {" "}
+                        {word.description}
+                    </p>
+                </div>
                 <img
                     className="w-100 aspect-video object-contain"
                     src={word.cover}
@@ -29,7 +32,7 @@ const WordDetailPage: React.FC = () => {
             </div>
             <div className="flex flex-row gap-8">
                 <SignDemo
-                    className="flex-3"
+                    className="flex-5"
                     src={word.demo}
 
                 />
@@ -46,18 +49,20 @@ const WordDetailPage: React.FC = () => {
                         </div>
                     </div>
 
-                    <AddToCollectionButton
-                        wordId={word.id}
-                        trigger={
-                            <Button
-                                variant="outline"
-                                className="flex flex-row"
-                            >
-                                <Heart />
-                                Add to a collection
-                            </Button>
-                        }
-                    />
+                    <Show when="signed-in">
+                        <AddToCollectionButton
+                            wordId={word.id}
+                            trigger={
+                                <Button
+                                    variant="outline"
+                                    className="flex flex-row"
+                                >
+                                    <Heart />
+                                    Add to a collection
+                                </Button>
+                            }
+                        />
+                    </Show>
                 </div>
             </div>
             <h3 className="text-xl font-medium">Related words</h3>

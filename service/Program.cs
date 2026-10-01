@@ -35,11 +35,13 @@ builder.Services.AddSingleton(sp =>
 
 
 builder.Services.AddScoped<Service.Data.SignLearningContext>();
+builder.Services.AddScoped<Service.Utils.FsrsScheduler>();
 builder.Services.AddScoped<Service.Services.IUserService, Service.Services.UserService>();
 builder.Services.AddScoped<Service.Services.IWordService, Service.Services.WordService>();
 builder.Services.AddScoped<Service.Services.IDeckService, Service.Services.DeckService>();
 builder.Services.AddScoped<Service.Services.IReviewService, Service.Services.ReviewService>();
-builder.Services.AddScoped<Service.Utils.FsrsScheduler>();
+builder.Services.AddScoped<Service.Services.IStatsService, Service.Services.StatsService>();
+
 builder.Services.AddControllers().AddJsonOptions(opts =>
 {
     opts.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());

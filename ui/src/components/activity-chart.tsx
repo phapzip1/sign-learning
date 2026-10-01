@@ -7,19 +7,12 @@ import {
     Legend,
     createHorizontalChart
 } from "recharts";
+import { RemoteActivity } from "@/src/types/stats.type";
+import { useMemo } from "react";
 
-const data = [
-  { month: "Jan", words: 1 },
-  { month: "Feb", words: 8 },
-  { month: "Mar", words: 4 },
-  { month: "Apr", words: 6 },
-  { month: "May", words: 3 },
-  { month: "Jun", words: 3 },
-];
 
-const Typed = createHorizontalChart<typeof data[number], string, number>()({ XAxis, YAxis, Tooltip, Line });
-
-const ActivityChart: React.FC = () => {
+const ActivityChart: React.FC<{ data: RemoteActivity[] }> = ({ data }) => {
+    const Typed = useMemo(() => createHorizontalChart<RemoteActivity, string, number>()({ XAxis, YAxis, Tooltip, Line }), [data]);
 
     return (
         <Typed.LineChart
@@ -29,11 +22,11 @@ const ActivityChart: React.FC = () => {
             className="mt-4"
         >
             <CartesianGrid strokeDasharray={[3, 3]} />
-            <Typed.XAxis dataKey="month" />
+            <Typed.XAxis dataKey="date" />
             <Typed.YAxis width="auto" />
             <Tooltip />
             <Legend />
-            <Typed.Line dataKey="words" />
+            <Typed.Line dataKey="count" />
         </Typed.LineChart>
     );
 }

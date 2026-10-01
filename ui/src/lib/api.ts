@@ -3,6 +3,8 @@ import qs from "qs";
 import { RemoteWordCard, RemoteWordItem, WordItem, WordLevel, WORDSORTs } from "@/src/types/word.type";
 import { TOPICS } from "@/src/types/topic.type";
 import { RemoteCollection, RemoteCollectionCard, RemoteCollectionUpsert } from "@/src/types/collection.type";
+import { RemoteActivityPoint, RemoteDailyActivity } from "@/src/types/stats.type";
+import { RemoteStudy, ReviewPayload } from "@/src/types/study.type";
 
 const api = axios.create({
     baseURL: "http://localhost:5026",
@@ -139,7 +141,7 @@ const createCollection = async (params: RemoteCollectionUpsert, auth: string) =>
 }
 
 const updateCollection = async (collection: string, payload: RemoteCollectionUpsert, auth: string) => {
-    
+
     const { data } = await api.put<RemoteCollection>(`api/decks/${collection}`, payload, {
         headers: {
             "Authorization": auth
@@ -167,10 +169,6 @@ const belongCollection = async (wordId: number, auth: string) => {
         }
     });
 
-    if (status !== 200) {
-        return null;
-    }
-
     return data.id;
 }
 
@@ -191,6 +189,75 @@ const addNewCards = async (deckId: string, wordIds: number[], auth: string) => {
     return data;
 }
 
+const getStreakStats = async (auth: string) => {
+    const { data } = await api.get<{ currentStreak: number; }>("/api/stats/streak", {
+        headers: {
+            "Authorization": auth,
+        }
+    });
+
+    return data.currentStreak;
+}
+
+const getHeatmapStats = async (year: number, auth: string) => {
+    const { data } = await api.get<RemoteDailyActivity>(`/api/stats/activity/${year}`, {
+        headers: {
+            "Authorization": auth,
+        }
+    });
+
+    console.log(data);
+
+
+    return data;
+}
+
+const getChartStats = async (period: number, auth: string) => {
+    const { data } = await api.get<RemoteActivityPoint>(`/api/stats/line-chart/${period}`, {
+        headers: {
+            "Authorization": auth,
+        }
+    });
+
+    return data;
+}
+
+const getYearsStats = async (auth: string) => {
+    const { data } = await api.get<number[]>("/api/stats/years", {
+        headers: {
+            "Authorization": auth,
+        }
+    });
+
+    return data;
+}
+
+const getStudy = async (deckId: string, auth: string) => {
+    const { data } = await api.get<RemoteStudy>(`/api/decks/${deckId}/study`,
+        {
+            headers: {
+                Authorization: auth,
+            },
+        }
+    );
+
+    return data;
+};
+
+const reviewCard = async (cardId: string, deckId: string, reviewData: ReviewPayload, auth: string) => {
+    const { data } = await api.get<RemoteStudy>(`/api/decks/${deckId}/cards/${cardId}/review`,
+        {
+            data: reviewData,
+            headers: {
+                Authorization: auth,
+            },
+        }
+    );
+
+    return data;
+}
+
+
 export {
     getWord,
     getWordList,
@@ -202,4 +269,10 @@ export {
     deleteCollection,
     addNewCards,
     searchBySign,
+    getStreakStats,
+    getHeatmapStats,
+    getChartStats,
+    getYearsStats,
+    getStudy,
+    reviewCard,
 }
