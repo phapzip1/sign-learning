@@ -44,12 +44,19 @@ namespace Service.Services
             var now = DateTime.UtcNow;
 
             var deck = await mDbContext.Decks
-                                    .AsNoTracking()
-                                    .FirstOrDefaultAsync(x =>
-                                    x.Id == deckId &&
-                                    x.UserId == uid) ?? throw new KeyNotFoundException("deck was not found.");
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x =>
+                    x.Id == deckId &&
+                    x.UserId == uid
+                )
+                ?? throw new KeyNotFoundException(
+                    "Deck was not found."
+                );
 
-            return await BuildReviewResponseAsync(deck, now);
+            return await BuildStudyResponseAsync(
+                deck,
+                now
+            );
         }
 
         private async Task<IReviewService.ReviewCardResponse> BuildStudyResponseAsync(Deck deck, DateTime now)
@@ -127,6 +134,7 @@ namespace Service.Services
 
         public async Task<IReviewService.ReviewCardResponse> ReviewCardAsync(IReviewService.ReviewCardParams args)
         {
+
             if (!Enum.IsDefined(typeof(RecallRating), args.Rating))
             {
                 throw new ArgumentException("Invalid rating.");
@@ -196,101 +204,50 @@ namespace Service.Services
             await transaction.CommitAsync();
 
             // Return the updated queue state.
-            return await GetStudyAsync(args.CardID, args.DeckID);
-        }
-
-        private async Task<IReviewService.ReviewCardResponse> BuildReviewResponseAsync(Deck deck, DateTime now)
-        {
-            var today = now.Date;
-            var tomorrow = today.AddDays(1);
-
-            var introducedToday = await mDbContext.Cards
-                                            .CountAsync(x =>
-                                            x.DeckId == deck.Id &&
-                                            x.FirstReviewAt >= today &&
-                                            x.FirstReviewAt < tomorrow);
-
-            uint remainingNewLimit = Math.Max(0, deck.NewCardsPerDay);
-            int availableNew = await mDbContext.Cards
-                                            .CountAsync(x =>
-                                            x.DeckId == deck.Id &&
-                                            x.State == LearningState.New);
-
-            uint newCount = Math.Min(
-                (uint)availableNew,
-                remainingNewLimit
-            );
-
-            var learningCount = await mDbContext.Cards
-                                            .CountAsync(x =>
-                                            x.DeckId == deck.Id &&
-                                            (
-                                                x.State == LearningState.Learning ||
-                                                x.State == LearningState.Relearning
-                                            ) &&
-                                            x.DueAt <= now);
-            var reviewCount = await mDbContext.Cards
-                                            .CountAsync(x =>
-                                            x.DeckId == deck.Id &&
-                                            x.State == LearningState.Review &&
-                                            x.DueAt <= now);
-
-            var nextLearningDueAt = await mDbContext.Cards
-                                            .Where(x =>
-                                            x.DeckId == deck.Id &&
-                                            (
-                                                x.State == LearningState.Learning ||
-                                                x.State == LearningState.Relearning
-                                            ) &&
-                                            x.DueAt > now)
-                                            .MinAsync(x => x.DueAt);
-
-            return new IReviewService.ReviewCardResponse
-            {
-                NewCardCount = newCount,
-                LearningCardCount = (uint)learningCount,
-                ReviewCardCount = (uint)reviewCount,
-
-            };
-
+            return await GetStudyAsync(args.UID, args.DeckID);
         }
 
         private async Task<Card?> GetNextCardAsync(string deckId, bool allowNew, DateTime now)
         {
+            // Learning / Relearning
             var card = await mDbContext.Cards
-                                    .AsNoTracking()
-                                    .Where(
-                                        x => x.DeckId == deckId && (
-                                            x.State == LearningState.Learning ||
-                                            x.State == LearningState.Relearning
-                                        ) &&
-                                        x.DueAt <= now)
-                                    .OrderBy(x => x.DueAt)
-                                    .FirstOrDefaultAsync();
+                .AsNoTracking()
+                .Include(x => x.Word)
+                .Where(x =>
+                    x.DeckId == deckId &&
+                    (
+                        x.State == LearningState.Learning ||
+                        x.State == LearningState.Relearning
+                    ) &&
+                    x.DueAt <= now
+                )
+                .OrderBy(x => x.DueAt)
+                .FirstOrDefaultAsync();
 
+            // Review
             card ??= await mDbContext.Cards
-                                     .AsNoTracking()
-                                     .Where(x =>
-                                         x.DeckId == deckId &&
-                                         x.State == LearningState.Review &&
-                                         x.DueAt <= now)
-                                     .OrderBy(x => x.DueAt)
-                                     .FirstOrDefaultAsync();
+                .AsNoTracking()
+                .Include(x => x.Word)
+                .Where(x =>
+                    x.DeckId == deckId &&
+                    x.State == LearningState.Review &&
+                    x.DueAt <= now
+                )
+                .OrderBy(x => x.DueAt)
+                .FirstOrDefaultAsync();
 
-            if (card == null && allowNew)
+            // New
+            if (card is null && allowNew)
             {
                 card = await mDbContext.Cards
-                                    .AsNoTracking()
-                                    .Where(x =>
-                                        x.DeckId == deckId &&
-                                        x.State == LearningState.New)
-                                    .OrderBy(x => x.CreatedAt)
-                                    .FirstOrDefaultAsync();
-            }
-
-            if (card == null)
-            {
-                return null;
+                    .AsNoTracking()
+                    .Include(x => x.Word)
+                    .Where(x =>
+                        x.DeckId == deckId &&
+                        x.State == LearningState.New
+                    )
+                    .OrderBy(x => x.CreatedAt)
+                    .FirstOrDefaultAsync();
             }
 
             return card;

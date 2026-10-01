@@ -29,16 +29,73 @@ namespace Service.Services
 
         public async Task<Models.Word> CreateAsync(IWordService.WordUpsertParams args)
         {
-            var value = args.Value.Trim();
-            if (await mDbContext.Words.AnyAsync(w => w.Value == value))
+            var value = args.Value?.Trim();
+            var meaning = args.Meaning?.Trim();
+            var cover = args.Cover?.Trim();
+            var demoURL = args.DemoURL?.Trim();
+            var instruction = args.Instruction?.Trim();
+
+            if (string.IsNullOrWhiteSpace(value))
+                throw new ArgumentException(
+                    "Word is required."
+                );
+
+            if (string.IsNullOrWhiteSpace(meaning))
+                throw new ArgumentException(
+                    "Meaning is required."
+                );
+
+            if (string.IsNullOrWhiteSpace(cover))
+                throw new ArgumentException(
+                    "Cover is required."
+                );
+
+            if (string.IsNullOrWhiteSpace(demoURL))
+                throw new ArgumentException(
+                    "Demo URL is required."
+                );
+
+            if (string.IsNullOrWhiteSpace(instruction))
+                throw new ArgumentException(
+                    "Instruction is required."
+                );
+
+            var normalizedValue =
+                value.ToLower();
+
+            var exists = await mDbContext.Words
+                .AsNoTracking()
+                .AnyAsync(x =>
+                    x.Value.ToLower() ==
+                    normalizedValue
+                );
+
+            if (exists)
             {
-                throw new Utils.ConflictException("A word with this value already exists.");
+                throw new InvalidOperationException(
+                    "A word with this value already exists."
+                );
             }
 
             var now = DateTime.UtcNow;
-            var word = new Models.Word { CreatedAt = now, UpdatedAt = now };
-            Apply(word, args);
-            mDbContext.Words.Add(word); // EF / MySQL generates the uint auto-increment ID.
+
+            var word = new Models.Word
+            {
+                Value = value,
+                Meaning = meaning,
+                Cover = cover,
+                DemoURL = demoURL,
+                Instruction = instruction,
+
+                Level = args.Level,
+                Topic = args.Topic,
+
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+
+            mDbContext.Words.Add(word);
+
             await mDbContext.SaveChangesAsync();
 
             return word;
@@ -143,17 +200,78 @@ namespace Service.Services
         public async Task<Models.Word> UpdateAsync(uint id, IWordService.WordUpsertParams args)
         {
             var word = await mDbContext.Words
-                                    .FirstOrDefaultAsync(w => w.Id == id)
-                                    ?? throw new KeyNotFoundException("Word not found.");
+                .FirstOrDefaultAsync(x =>
+                    x.Id == id
+                );
 
-            var value = args.Value.Trim();
-            if (await mDbContext.Words.AnyAsync(w => w.Id != id && w.Value == value))
+            if (word is null)
             {
-                throw new Utils.ConflictException("A word with this value already exists.");
+                throw new KeyNotFoundException(
+                    "Word not found."
+                );
             }
 
-            Apply(word, args);
+            var value = args.Value?.Trim();
+            var meaning = args.Meaning?.Trim();
+            var cover = args.Cover?.Trim();
+            var demoURL = args.DemoURL?.Trim();
+            var instruction = args.Instruction?.Trim();
+
+            if (string.IsNullOrWhiteSpace(value))
+                throw new ArgumentException(
+                    "Word is required."
+                );
+
+            if (string.IsNullOrWhiteSpace(meaning))
+                throw new ArgumentException(
+                    "Meaning is required."
+                );
+
+            if (string.IsNullOrWhiteSpace(cover))
+                throw new ArgumentException(
+                    "Cover is required."
+                );
+
+            if (string.IsNullOrWhiteSpace(demoURL))
+                throw new ArgumentException(
+                    "Demo URL is required."
+                );
+
+            if (string.IsNullOrWhiteSpace(instruction))
+                throw new ArgumentException(
+                    "Instruction is required."
+                );
+
+            /*
+             * Prevent renaming this word to another
+             * existing word.
+             */
+            var normalizedValue = value.ToLower();
+
+            var duplicate = await mDbContext.Words
+                .AsNoTracking()
+                .AnyAsync(x =>
+                    x.Id != id && x.Value.ToLower() == normalizedValue
+                );
+
+            if (duplicate)
+            {
+                throw new InvalidOperationException(
+                    "A word with this value already exists."
+                );
+            }
+
+            word.Value = value;
+            word.Meaning = meaning;
+            word.Cover = cover;
+            word.DemoURL = demoURL;
+            word.Instruction = instruction;
+
+            word.Level = args.Level;
+            word.Topic = args.Topic;
+
             word.UpdatedAt = DateTime.UtcNow;
+
             await mDbContext.SaveChangesAsync();
 
             return word;

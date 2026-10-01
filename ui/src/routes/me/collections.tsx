@@ -324,4 +324,4 @@ export const Route = createFileRoute("/me/collections")({
       }
     }
   }
-})
+});

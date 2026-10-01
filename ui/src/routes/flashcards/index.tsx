@@ -80,7 +80,7 @@ const FlashCardPage: React.FC = () => {
     columnHelper.display({
       id: "actions",
       cell: ({ row }) => {
-        
+
         return (
           <div className="flex flex-row gap-4 w-fit">
             <Button
@@ -95,7 +95,13 @@ const FlashCardPage: React.FC = () => {
             <Button
               size="icon-sm"
               variant="secondary"
-              onClick={() => {}}
+              onClick={() => {
+                navigate({
+                  to: "/me/collections", search: {
+                    collection: row.original.id,
+                  }
+                })
+              }}
             >
               <Settings />
             </Button>

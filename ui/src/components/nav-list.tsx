@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/tanstack-react-start";
+import { Show, SignInButton, SignOutButton, SignUpButton, UserButton } from "@clerk/tanstack-react-start";
 import {
     Activity,
     BookOpen,
@@ -74,6 +74,11 @@ const NavList: React.FC = () => {
                 >
                     Your Profile
                 </Link>
+                <SignOutButton >
+                    <Button variant="destructive" className="rounded">
+                        Logout
+                    </Button>
+                </SignOutButton>
             </Show>
             {/* <Show when="signed-in">
                 <span className="ml-2">
@@ -86,6 +91,7 @@ const NavList: React.FC = () => {
                         Login
                     </Button>
                 </SignInButton>
+
             </Show>
         </div>
     );

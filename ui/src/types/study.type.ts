@@ -1,20 +1,16 @@
-export enum RecallRating {
-    again = 0,
-    hard,
-    good,
-    easy,
-}
+export type RecallRating = "Again" | "Hard" | "Good" | "Easy";
 
 export type RemoteStudyCard = {
     id: string;
-    wordId: number;
-
-    value: string;
-    meaning: string;
-    demoURL: string;
-    instruction?: string;
-
     state: number;
+
+    word: {
+        id: number;
+        value: string;
+        meaning: string;
+        demoURL: string;
+        instruction: string;
+    };
 };
 
 export type ReviewPayload = {

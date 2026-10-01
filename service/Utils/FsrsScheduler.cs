@@ -1,362 +1,1194 @@
+using Service.Models;
+
 namespace Service.Utils
 {
+
     public sealed class FsrsScheduler
     {
-        private static readonly float[] Parameters = [
-            0.2172f,
-            1.1771f,
-            3.2602f,
-            16.1507f,
-            7.0114f,
-            0.57f,
-            2.0966f,
-            0.0069f,
-            1.5261f,
-            0.112f,
-            1.0178f,
-            1.849f,
-            0.1133f,
-            0.3127f,
-            2.2934f,
-            0.2191f,
-            3.0004f,
-            0.7536f,
-            0.3332f,
-            0.1437f,
-            0.2f,
+        /*
+         * Parameters from the dart-fsrs implementation linked above.
+         */
+        private static readonly double[] DefaultParameters =
+        [
+            0.2172,
+            1.1771,
+            3.2602,
+            16.1507,
+            7.0114,
+            0.57,
+            2.0966,
+            0.0069,
+            1.5261,
+            0.112,
+            1.0178,
+            1.849,
+            0.1133,
+            0.3127,
+            2.2934,
+            0.2191,
+            3.0004,
+            0.7536,
+            0.3332,
+            0.1437,
+            0.2
         ];
 
-        private const float DesiredRetention = 0.9f;
-        private const float MinimumStability = 0.001f;
+        private const double StabilityMin = 0.001;
+        private const double MinDifficulty = 1.0;
+        private const double MaxDifficulty = 10.0;
 
-        private readonly float mDecay;
-        private readonly float mFactor;
+        private readonly double[] mParameters;
 
-        public FsrsScheduler()
+        private readonly double mDesiredRetention;
+        private readonly bool mEnableFuzzing;
+
+        private readonly double mDecay;
+        private readonly double mFactor;
+
+        public FsrsScheduler(
+            double desiredRetention = 0.9,
+            bool enableFuzzing = true
+        )
         {
-            mDecay = Parameters[20];
-            mFactor = MathF.Pow(0.9f, 1.0f / mDecay) - 1;
+            if (
+                desiredRetention <= 0 ||
+                desiredRetention >= 1
+            )
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(desiredRetention)
+                );
+            }
+
+            mParameters =
+                (double[])DefaultParameters.Clone();
+
+            mDesiredRetention =
+                desiredRetention;
+
+            mEnableFuzzing =
+                enableFuzzing;
+
+            /*
+             * dart-fsrs:
+             *
+             * decay = -parameters[20]
+             *
+             * factor is calibrated so stability means
+             * approximately 90% retention.
+             */
+            mDecay =
+                -mParameters[20];
+
+            mFactor =
+                Math.Pow(
+                    0.9,
+                    1.0 / mDecay
+                ) - 1.0;
         }
 
-        public void Review(Models.Card card, Models.RecallRating rating, DateTime reviewDate)
+        /*
+         * ----------------------------------------------------------------
+         * Public API
+         * ----------------------------------------------------------------
+         */
+
+        public void Review(
+            Card card,
+            RecallRating rating,
+            DateTime now
+        )
         {
+            if (now.Kind != DateTimeKind.Utc)
+            {
+                throw new ArgumentException(
+                    "Review time must be UTC.",
+                    nameof(now)
+                );
+            }
+
+            if (!Enum.IsDefined(
+                typeof(RecallRating),
+                rating
+            ))
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(rating)
+                );
+            }
+
+            if (card.Deck is null)
+            {
+                throw new InvalidOperationException(
+                    "Card.Deck must be loaded before scheduling."
+                );
+            }
+
+            /*
+             * Your RecallRating is 0..3.
+             *
+             * FSRS uses 1..4.
+             */
+            var fsrsRating =
+                ToFsrsRating(rating);
+
+            var daysSinceLastReview =
+                card.LastReviewAt.HasValue
+                    ? Math.Max(
+                        0,
+                        (int)Math.Floor(
+                            (
+                                now -
+                                card.LastReviewAt.Value
+                            ).TotalDays
+                        )
+                    )
+                    : (int?)null;
+
+            TimeSpan nextInterval;
+
             switch (card.State)
             {
-                case Models.LearningState.Learning:
-                    ReviewLearning(card, rating, reviewDate);
+                /*
+                 * dart-fsrs doesn't have a separate New state.
+                 *
+                 * A new card is effectively an uninitialized
+                 * Learning card.
+                 */
+                case LearningState.New:
+                    card.FirstReviewAt ??=
+                        now;
+
+                    card.State =
+                        LearningState.Learning;
+
+                    card.Step = 0;
+
+                    card.Stability =
+                        (float)InitialStability(
+                            fsrsRating
+                        );
+
+                    card.Difficulty =
+                        (float)InitialDifficulty(
+                            fsrsRating
+                        );
+
+                    nextInterval =
+                        ScheduleLearning(
+                            card,
+                            fsrsRating
+                        );
+
                     break;
-                case Models.LearningState.Relearning:
-                    ReviewRelearning(card, rating, reviewDate);
+
+                case LearningState.Learning:
+                    UpdateMemoryState(
+                        card,
+                        fsrsRating,
+                        daysSinceLastReview,
+                        now
+                    );
+
+                    nextInterval =
+                        ScheduleLearning(
+                            card,
+                            fsrsRating
+                        );
+
                     break;
-                case Models.LearningState.Review:
-                    ReviewReviewCard(card, rating, reviewDate);
+
+                case LearningState.Review:
+                    UpdateMemoryState(
+                        card,
+                        fsrsRating,
+                        daysSinceLastReview,
+                        now
+                    );
+
+                    nextInterval =
+                        ScheduleReview(
+                            card,
+                            fsrsRating
+                        );
+
                     break;
+
+                case LearningState.Relearning:
+                    UpdateMemoryState(
+                        card,
+                        fsrsRating,
+                        daysSinceLastReview,
+                        now
+                    );
+
+                    nextInterval =
+                        ScheduleRelearning(
+                            card,
+                            fsrsRating
+                        );
+
+                    break;
+
                 default:
-                    throw new ArgumentOutOfRangeException();
+                    throw new ArgumentOutOfRangeException(
+                        nameof(card.State)
+                    );
             }
 
-            card.LastReviewAt = reviewDate;
-            card.UpdatedAt = reviewDate;
-        }
-
-        private float InitialStability(Models.RecallRating rating)
-        {
-            var ratingVal = RatingValue(rating);
-
-            return ClampStability(Parameters[ratingVal - 1]);
-        }
-
-        private float InitialDifficulty(Models.RecallRating rating)
-        {
-            var ratingVal = RatingValue(rating);
-
-            float difficulty = Parameters[4] - MathF.Exp(Parameters[5] * (ratingVal - 1)) + 1;
-
-            return ClampDifficulty(difficulty);
-        }
-        private float GetRetrievability(Models.Card card, DateTime reviewDate)
-        {
-            if (card.LastReviewAt == null)
+            /*
+             * dart-fsrs applies fuzz only to cards
+             * ending in the Review state.
+             */
+            if (
+                mEnableFuzzing &&
+                card.State ==
+                    LearningState.Review
+            )
             {
-                return 0f;
+                nextInterval =
+                    GetFuzzedInterval(
+                        nextInterval,
+                        GetMaximumInterval(
+                            card
+                        )
+                    );
             }
 
-            float elapsedDays = MathF.Max(0, MathF.Floor((float)(reviewDate - card.LastReviewAt.Value).TotalDays));
+            card.DueAt =
+                now.Add(
+                    nextInterval
+                );
 
-            var stability = MathF.Max(card.Stability, MinimumStability);
+            card.LastReviewAt =
+                now;
 
-            return MathF.Pow(1 + mFactor * elapsedDays / stability, mDecay);
+            card.UpdatedAt =
+                now;
         }
 
-        private int NextInterval(float stability, uint maximumInterval)
-        {
-            var interval = stability / mFactor * (MathF.Pow(DesiredRetention, 1.0f / mDecay) - 1f);
-
-            var days = (int)MathF.Round(interval);
-
-            days = Math.Max(days, 1);
-
-            var maxInterval = maximumInterval > int.MaxValue ? int.MaxValue : (int)maximumInterval;
-
-            return Math.Min(days, maxInterval);
-        }
-
-        private float NextDifficulty(float difficulty, Models.RecallRating rating)
-        {
-            var ratingVal = RatingValue(rating);
-
-            var initialEasyDifficulty = InitialDifficulty(Models.RecallRating.Easy);
-
-            var deltaDifficulty = -Parameters[6] * (ratingVal - 3);
-
-            var dampedDelta = (10.0f - difficulty) * deltaDifficulty / 9.0f;
-
-            var adjustedDifficulty = difficulty + dampedDelta;
-
-            var nextDifficulty = Parameters[7] * initialEasyDifficulty + (1 - Parameters[7]) * adjustedDifficulty;
-
-            return ClampDifficulty(nextDifficulty);
-        }
-
-        private float NextRecallStability(
-            float difficulty,
-            float stability,
-            float retrievability,
-            Models.RecallRating rating
+        public double GetRetrievability(
+            Card card,
+            DateTime now
         )
         {
-            float hardPenalty = rating == Models.RecallRating.Hard ? Parameters[15] : 1.0f;
-            float easyBonus = rating == Models.RecallRating.Easy ? Parameters[16] : 1.0f;
-            float nextStability = stability * (
-                1.0f +
-                MathF.Exp(Parameters[8]) *
-                (11.0f - difficulty) *
-                MathF.Pow(stability, -Parameters[9]) *
-                (MathF.Exp((1 - retrievability) * Parameters[10]) - 1.0f) *
-                hardPenalty *
-                easyBonus
+            if (
+                card.LastReviewAt is null ||
+                card.Stability <= 0
+            )
+            {
+                return 0;
+            }
+
+            var elapsedDays =
+                Math.Max(
+                    0,
+                    (int)Math.Floor(
+                        (
+                            now -
+                            card.LastReviewAt.Value
+                        ).TotalDays
+                    )
+                );
+
+            return Math.Pow(
+                1.0 +
+                mFactor *
+                elapsedDays /
+                card.Stability,
+
+                mDecay
             );
-
-            return ClampStability(nextStability);
         }
 
-        private float NextForgetStability(
-            float difficulty,
-            float stability,
-            float retrievability
+        /*
+         * ----------------------------------------------------------------
+         * Memory update
+         * ----------------------------------------------------------------
+         */
+
+        private void UpdateMemoryState(
+            Card card,
+            FsrsRating rating,
+            int? daysSinceLastReview,
+            DateTime now
         )
         {
-            float longTerm = Parameters[11] *
-                                MathF.Pow(difficulty, -Parameters[12]) *
-                                (MathF.Pow(stability + 1.0f, Parameters[13]) - 1.0f) *
-                                MathF.Exp((1.0f - retrievability) * Parameters[14]);
-            float shortTerm = stability / MathF.Exp(Parameters[17] * Parameters[18]);
-
-            return ClampStability(MathF.Min(longTerm, shortTerm));
-        }
-
-        private float NextStability(
-            float difficulty,
-            float stability,
-            float retrievability,
-            Models.RecallRating rating
-        )
-        {
-            if (rating == Models.RecallRating.Again)
+            /*
+             * Safety for old/uninitialized cards.
+             */
+            if (
+                card.Stability <= 0 ||
+                card.Difficulty <= 0
+            )
             {
-                return NextForgetStability(difficulty, stability, retrievability);
-            }
+                card.Stability =
+                    (float)InitialStability(
+                        rating
+                    );
 
-            return NextRecallStability(difficulty, stability, retrievability, rating);
-        }
-
-        private float ShortTermStability(float stability, Models.RecallRating rating)
-        {
-            var ratingVal = RatingValue(rating);
-
-            var increase = MathF.Exp(Parameters[17] * (ratingVal - 3.0f + Parameters[18])) * MathF.Pow(stability, -Parameters[19]);
-
-            if (rating is Models.RecallRating.Good or Models.RecallRating.Easy)
-            {
-                increase = MathF.Max(increase, 1.0f);
-            }
-
-            return ClampStability(stability * increase);
-        }
-
-        private void ReviewReviewCard(Models.Card card, Models.RecallRating rating, DateTime now)
-        {
-            var stability = MathF.Max(card.Stability, MinimumStability);
-            var difficulty = Math.Clamp(card.Difficulty, 1.0f, 10.0f);
-            var daysSinceLastReview = card.LastReviewAt.HasValue ? (float)(now - card.LastReviewAt.Value).TotalDays : (float?)null;
-
-            if (daysSinceLastReview.HasValue && daysSinceLastReview.Value < 1.0f)
-            {
-                stability = ShortTermStability(stability, rating);
-            }
-            else
-            {
-                var retrievability = GetRetrievability(card, now);
-                stability = NextStability(difficulty, stability, retrievability, rating);
-            }
-
-            difficulty = NextDifficulty(difficulty, rating);
-
-            card.Stability = stability;
-            card.Difficulty = difficulty;
-
-            if (rating == Models.RecallRating.Again && card.Deck.RelearningSteps.Length > 0)
-            {
-                card.State = Models.LearningState.Learning;
-
-                card.Step = 0;
-
-                card.DueAt = now.AddSeconds(card.Deck.RelearningSteps[0]);
+                card.Difficulty =
+                    (float)InitialDifficulty(
+                        rating
+                    );
 
                 return;
             }
 
-            var nextInterval = NextInterval(stability, card.Deck.MaximumInterval);
-            card.DueAt = now.AddDays(nextInterval);
-        }
-
-        private void GraduateToReview(Models.Card card, DateTime now)
-        {
-            card.State = Models.LearningState.Review;
-            card.Step = null;
-
-            var interval = NextInterval(card.Stability, card.Deck.MaximumInterval);
-
-            card.DueAt = now.AddDays(interval);
-        }
-
-        private void ReviewRelearning(Models.Card card, Models.RecallRating rating, DateTime now)
-        {
-            float days = card.LastReviewAt.HasValue ? (float)(now - card.LastReviewAt.Value).TotalDays : 0.0f;
-
-            if (days < 1)
+            /*
+             * Same-day review:
+             * use FSRS short-term stability.
+             */
+            if (
+                daysSinceLastReview.HasValue &&
+                daysSinceLastReview.Value < 1
+            )
             {
-                card.Stability = ShortTermStability(card.Stability, rating);
-            }
-            else
-            {
-                var retrievability = GetRetrievability(card, now);
-                card.Stability = NextStability(card.Difficulty, card.Stability, retrievability, rating);
+                card.Stability =
+                    (float)ShortTermStability(
+                        card.Stability,
+                        rating
+                    );
+
+                card.Difficulty =
+                    (float)NextDifficulty(
+                        card.Difficulty,
+                        rating
+                    );
+
+                return;
             }
 
-            card.Difficulty = NextDifficulty(card.Difficulty, rating);
+            /*
+             * Long-term review:
+             * use retrievability.
+             */
+            var retrievability =
+                GetRetrievability(
+                    card,
+                    now
+                );
 
-            var steps = card.Deck.RelearningSteps;
+            card.Stability =
+                (float)NextStability(
+                    card.Difficulty,
+                    card.Stability,
+                    retrievability,
+                    rating
+                );
 
+            card.Difficulty =
+                (float)NextDifficulty(
+                    card.Difficulty,
+                    rating
+                );
+        }
+
+        /*
+         * ----------------------------------------------------------------
+         * Learning
+         * ----------------------------------------------------------------
+         */
+
+        private TimeSpan ScheduleLearning(
+            Card card,
+            FsrsRating rating
+        )
+        {
+            var steps =
+                card.Deck.LearningSteps
+                ?? [];
+
+            return ScheduleSteps(
+                card,
+                rating,
+                steps,
+                LearningState.Learning
+            );
+        }
+
+        /*
+         * ----------------------------------------------------------------
+         * Relearning
+         * ----------------------------------------------------------------
+         */
+
+        private TimeSpan ScheduleRelearning(
+            Card card,
+            FsrsRating rating
+        )
+        {
+            var steps =
+                card.Deck.RelearningSteps
+                ?? [];
+
+            return ScheduleSteps(
+                card,
+                rating,
+                steps,
+                LearningState.Relearning
+            );
+        }
+
+        /*
+         * Shared learning/relearning step logic.
+         */
+        private TimeSpan ScheduleSteps(
+            Card card,
+            FsrsRating rating,
+            int[] steps,
+            LearningState stepState
+        )
+        {
+            var currentStep =
+                Math.Max(
+                    0,
+                    card.Step ?? 0
+                );
+
+            /*
+             * No learning steps configured:
+             * go straight to Review.
+             */
             if (steps.Length == 0)
             {
-                GraduateToReview(card, now);
-
-                return;
+                return GraduateToReview(
+                    card
+                );
             }
 
-            var step = card.Step ?? 0;
+            /*
+             * Handles a deck whose step configuration
+             * was shortened after this card was scheduled.
+             *
+             * Again is special because it can always
+             * restart from step zero.
+             */
+            if (
+                currentStep >= steps.Length &&
+                rating != FsrsRating.Again
+            )
+            {
+                return GraduateToReview(
+                    card
+                );
+            }
+
+            card.State =
+                stepState;
 
             switch (rating)
             {
-                case Models.RecallRating.Again:
-                    card.Step = 0;
-                    card.DueAt = now.AddSeconds(steps[0]);
-                    break;
-                case Models.RecallRating.Hard:
-                    card.DueAt = now.AddSeconds(GetHardInterval(steps, step));
-                    break;
-                case Models.RecallRating.Good:
-                    if (step + 1 >= steps.Length)
+                case FsrsRating.Again:
                     {
-                        GraduateToReview(card, now);
+                        card.Step = 0;
+
+                        return StepInterval(
+                            steps,
+                            0
+                        );
                     }
-                    else
+
+                case FsrsRating.Hard:
                     {
-                        card.Step = step + 1;
-                        card.DueAt = now.AddSeconds(steps[step + 1]);
+                        /*
+                         * Hard doesn't advance the step.
+                         */
+                        if (currentStep >= steps.Length)
+                        {
+                            currentStep = 0;
+                        }
+
+                        card.Step =
+                            currentStep;
+
+                        /*
+                         * dart-fsrs special handling
+                         * for the first step.
+                         */
+                        if (
+                            currentStep == 0 &&
+                            steps.Length == 1
+                        )
+                        {
+                            return TimeSpan.FromSeconds(
+                                ValidStep(
+                                    steps[0]
+                                ) * 1.5
+                            );
+                        }
+
+                        if (
+                            currentStep == 0 &&
+                            steps.Length >= 2
+                        )
+                        {
+                            var first =
+                                ValidStep(
+                                    steps[0]
+                                );
+
+                            var second =
+                                ValidStep(
+                                    steps[1]
+                                );
+
+                            return TimeSpan.FromSeconds(
+                                (first + second) / 2
+                            );
+                        }
+
+                        return StepInterval(
+                            steps,
+                            currentStep
+                        );
                     }
-                    break;
-                case Models.RecallRating.Easy:
-                    GraduateToReview(card, now);
-                    break;
+
+                case FsrsRating.Good:
+                    {
+                        var nextStep =
+                            currentStep + 1;
+
+                        /*
+                         * Current step was the last step.
+                         */
+                        if (
+                            nextStep >=
+                            steps.Length
+                        )
+                        {
+                            return GraduateToReview(
+                                card
+                            );
+                        }
+
+                        card.Step =
+                            nextStep;
+
+                        return StepInterval(
+                            steps,
+                            nextStep
+                        );
+                    }
+
+                case FsrsRating.Easy:
+                    return GraduateToReview(
+                        card
+                    );
+
                 default:
-                    throw new ArgumentOutOfRangeException();
+                    throw new ArgumentOutOfRangeException(
+                        nameof(rating)
+                    );
             }
         }
 
-        private void ReviewLearning(Models.Card card, Models.RecallRating rating, DateTime now)
+        /*
+         * ----------------------------------------------------------------
+         * Review
+         * ----------------------------------------------------------------
+         */
+
+        private TimeSpan ScheduleReview(
+            Card card,
+            FsrsRating rating
+        )
         {
-            if (card.Stability <= 0)
+            if (rating == FsrsRating.Again)
             {
-                card.Stability = InitialStability(rating);
-            }
+                var steps =
+                    card.Deck.RelearningSteps
+                    ?? [];
 
-            if (card.Difficulty <= 0)
-            {
-                card.Difficulty = InitialDifficulty(rating);
-            }
+                if (steps.Length > 0)
+                {
+                    card.State =
+                        LearningState.Relearning;
 
-            var steps = card.Deck.LearningSteps;
-
-            if (steps.Length == 0)
-            {
-                GraduateToReview(card, now);
-
-                return;
-            }
-
-            var step = card.Step ?? 0;
-
-            switch (rating)
-            {
-                case Models.RecallRating.Again:
                     card.Step = 0;
-                    card.DueAt = now.AddSeconds(steps[0]);
-                    break;
-                case Models.RecallRating.Hard:
-                    card.DueAt = now.AddSeconds(GetHardInterval(steps, step));
-                    break;
-                case Models.RecallRating.Good:
-                    if (step + 1 >= steps.Length)
-                    {
-                        GraduateToReview(card, now);
-                    }
-                    else
-                    {
-                        card.Step = step + 1;
-                        card.DueAt = now.AddSeconds(steps[step + 1]);
-                    }
-                    break;
-                case Models.RecallRating.Easy:
-                    GraduateToReview(card, now);
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
+
+                    return StepInterval(
+                        steps,
+                        0
+                    );
+                }
             }
+
+            /*
+             * Hard, Good, Easy — or Again with no
+             * relearning steps — stay in Review.
+             */
+            card.State =
+                LearningState.Review;
+
+            card.Step =
+                null;
+
+            return ReviewInterval(
+                card
+            );
         }
 
-        private static int GetHardInterval(int[] steps, int step)
+        private TimeSpan GraduateToReview(
+            Card card
+        )
         {
-            step = Math.Clamp(step, 0, steps.Length - 1);
+            card.State =
+                LearningState.Review;
 
-            if (step == 0 && steps.Length == 1)
-            {
-                return (int)MathF.Round(steps[0] * 1.5f);
-            }
+            card.Step =
+                null;
 
-            if (step == 0 && steps.Length >= 2)
-            {
-                return (steps[0] + steps[1]) / 2;
-            }
-
-            return steps[step];
+            return ReviewInterval(
+                card
+            );
         }
 
-        private static int RatingValue(Models.RecallRating rating) => ((int)rating) + 1;
+        private TimeSpan ReviewInterval(
+            Card card
+        )
+        {
+            var days =
+                NextInterval(
+                    card.Stability,
+                    GetMaximumInterval(
+                        card
+                    )
+                );
 
-        private static float ClampDifficulty(float difficulty) => Math.Clamp(difficulty, 1.0f, 10.0f);
+            return TimeSpan.FromDays(
+                days
+            );
+        }
 
-        private static float ClampStability(float stability) => Math.Max(stability, MinimumStability);
+        /*
+         * ----------------------------------------------------------------
+         * FSRS equations
+         * ----------------------------------------------------------------
+         */
+
+        private double InitialStability(
+            FsrsRating rating
+        )
+        {
+            var value =
+                mParameters[
+                    (int)rating - 1
+                ];
+
+            return ClampStability(
+                value
+            );
+        }
+
+        private double InitialDifficulty(
+            FsrsRating rating
+        )
+        {
+            var r =
+                (int)rating;
+
+            var difficulty =
+                mParameters[4]
+                -
+                Math.Exp(
+                    mParameters[5] *
+                    (r - 1)
+                )
+                +
+                1.0;
+
+            return ClampDifficulty(
+                difficulty
+            );
+        }
+
+        private int NextInterval(
+            double stability,
+            int maximumInterval
+        )
+        {
+            var next =
+                (
+                    stability /
+                    mFactor
+                )
+                *
+                (
+                    Math.Pow(
+                        mDesiredRetention,
+                        1.0 / mDecay
+                    )
+                    -
+                    1.0
+                );
+
+            var rounded =
+                (int)Math.Round(
+                    next,
+                    MidpointRounding.AwayFromZero
+                );
+
+            rounded =
+                Math.Max(
+                    1,
+                    rounded
+                );
+
+            rounded =
+                Math.Min(
+                    maximumInterval,
+                    rounded
+                );
+
+            return rounded;
+        }
+
+        private double ShortTermStability(
+            double stability,
+            FsrsRating rating
+        )
+        {
+            var r =
+                (int)rating;
+
+            var increase =
+                Math.Exp(
+                    mParameters[17] *
+                    (
+                        r -
+                        3 +
+                        mParameters[18]
+                    )
+                )
+                *
+                Math.Pow(
+                    stability,
+                    -mParameters[19]
+                );
+
+            if (
+                rating == FsrsRating.Good ||
+                rating == FsrsRating.Easy
+            )
+            {
+                increase =
+                    Math.Max(
+                        increase,
+                        1.0
+                    );
+            }
+
+            return ClampStability(
+                stability *
+                increase
+            );
+        }
+
+        private double NextDifficulty(
+            double difficulty,
+            FsrsRating rating
+        )
+        {
+            var r =
+                (int)rating;
+
+            /*
+             * Linear damping.
+             */
+            var deltaDifficulty =
+                -(
+                    mParameters[6] *
+                    (r - 3)
+                );
+
+            var dampedDelta =
+                (
+                    10.0 -
+                    difficulty
+                )
+                *
+                deltaDifficulty
+                /
+                9.0;
+
+            var candidate =
+                difficulty +
+                dampedDelta;
+
+            /*
+             * Mean reversion toward Easy's
+             * initial difficulty.
+             */
+            var easyInitialDifficulty =
+                InitialDifficulty(
+                    FsrsRating.Easy
+                );
+
+            var next =
+                mParameters[7] *
+                easyInitialDifficulty
+                +
+                (
+                    1.0 -
+                    mParameters[7]
+                )
+                *
+                candidate;
+
+            return ClampDifficulty(
+                next
+            );
+        }
+
+        private double NextStability(
+            double difficulty,
+            double stability,
+            double retrievability,
+            FsrsRating rating
+        )
+        {
+            double next;
+
+            if (rating == FsrsRating.Again)
+            {
+                next =
+                    NextForgetStability(
+                        difficulty,
+                        stability,
+                        retrievability
+                    );
+            }
+            else
+            {
+                next =
+                    NextRecallStability(
+                        difficulty,
+                        stability,
+                        retrievability,
+                        rating
+                    );
+            }
+
+            return ClampStability(
+                next
+            );
+        }
+
+        private double NextForgetStability(
+            double difficulty,
+            double stability,
+            double retrievability
+        )
+        {
+            var longTerm =
+                mParameters[11]
+                *
+                Math.Pow(
+                    difficulty,
+                    -mParameters[12]
+                )
+                *
+                (
+                    Math.Pow(
+                        stability + 1.0,
+                        mParameters[13]
+                    )
+                    -
+                    1.0
+                )
+                *
+                Math.Exp(
+                    (
+                        1.0 -
+                        retrievability
+                    )
+                    *
+                    mParameters[14]
+                );
+
+            var shortTerm =
+                stability
+                /
+                Math.Exp(
+                    mParameters[17] *
+                    mParameters[18]
+                );
+
+            return Math.Min(
+                longTerm,
+                shortTerm
+            );
+        }
+
+        private double NextRecallStability(
+            double difficulty,
+            double stability,
+            double retrievability,
+            FsrsRating rating
+        )
+        {
+            var hardPenalty =
+                rating ==
+                FsrsRating.Hard
+                    ? mParameters[15]
+                    : 1.0;
+
+            var easyBonus =
+                rating ==
+                FsrsRating.Easy
+                    ? mParameters[16]
+                    : 1.0;
+
+            return stability
+                *
+                (
+                    1.0
+                    +
+                    Math.Exp(
+                        mParameters[8]
+                    )
+                    *
+                    (
+                        11.0 -
+                        difficulty
+                    )
+                    *
+                    Math.Pow(
+                        stability,
+                        -mParameters[9]
+                    )
+                    *
+                    (
+                        Math.Exp(
+                            (
+                                1.0 -
+                                retrievability
+                            )
+                            *
+                            mParameters[10]
+                        )
+                        -
+                        1.0
+                    )
+                    *
+                    hardPenalty
+                    *
+                    easyBonus
+                );
+        }
+
+        /*
+         * ----------------------------------------------------------------
+         * Fuzzing
+         * ----------------------------------------------------------------
+         */
+
+        private static TimeSpan GetFuzzedInterval(
+            TimeSpan interval,
+            int maximumInterval
+        )
+        {
+            var intervalDays =
+                (int)Math.Round(
+                    interval.TotalDays,
+                    MidpointRounding.AwayFromZero
+                );
+
+            /*
+             * dart-fsrs doesn't fuzz very short intervals.
+             */
+            if (intervalDays < 2.5)
+            {
+                return interval;
+            }
+
+            var delta = 1.0;
+
+            delta +=
+                0.15 *
+                Math.Max(
+                    Math.Min(
+                        intervalDays,
+                        7.0
+                    ) -
+                    2.5,
+                    0
+                );
+
+            delta +=
+                0.10 *
+                Math.Max(
+                    Math.Min(
+                        intervalDays,
+                        20.0
+                    ) -
+                    7.0,
+                    0
+                );
+
+            delta +=
+                0.05 *
+                Math.Max(
+                    intervalDays -
+                    20.0,
+                    0
+                );
+
+            var minDays =
+                (int)Math.Round(
+                    intervalDays -
+                    delta,
+                    MidpointRounding.AwayFromZero
+                );
+
+            var maxDays =
+                (int)Math.Round(
+                    intervalDays +
+                    delta,
+                    MidpointRounding.AwayFromZero
+                );
+
+            minDays =
+                Math.Max(
+                    2,
+                    minDays
+                );
+
+            maxDays =
+                Math.Min(
+                    maximumInterval,
+                    maxDays
+                );
+
+            minDays =
+                Math.Min(
+                    minDays,
+                    maxDays
+                );
+
+            var range =
+                maxDays -
+                minDays +
+                1;
+
+            var fuzzed =
+                minDays +
+                (int)Math.Floor(
+                    Random.Shared.NextDouble() *
+                    range
+                );
+
+            fuzzed =
+                Math.Min(
+                    fuzzed,
+                    maximumInterval
+                );
+
+            return TimeSpan.FromDays(
+                fuzzed
+            );
+        }
+
+        /*
+         * ----------------------------------------------------------------
+         * Helpers
+         * ----------------------------------------------------------------
+         */
+
+        private static TimeSpan StepInterval(
+            int[] steps,
+            int index
+        )
+        {
+            return TimeSpan.FromSeconds(
+                ValidStep(
+                    steps[index]
+                )
+            );
+        }
+
+        private static int ValidStep(
+            int seconds
+        )
+        {
+            if (seconds <= 0)
+            {
+                throw new InvalidOperationException(
+                    "Learning steps must be greater than zero."
+                );
+            }
+
+            return seconds;
+        }
+
+        private static int GetMaximumInterval(
+            Card card
+        )
+        {
+            if (card.Deck.MaximumInterval == 0)
+            {
+                return 1;
+            }
+
+            return card.Deck.MaximumInterval >
+                   int.MaxValue
+                ? int.MaxValue
+                : (int)card.Deck.MaximumInterval;
+        }
+
+        private static double ClampDifficulty(
+            double value
+        )
+        {
+            return Math.Clamp(
+                value,
+                MinDifficulty,
+                MaxDifficulty
+            );
+        }
+
+        private static double ClampStability(
+            double value
+        )
+        {
+            return Math.Max(
+                value,
+                StabilityMin
+            );
+        }
+
+        /*
+         * Explicitly translate your 0..3 enum
+         * to FSRS's 1..4 rating scale.
+         */
+        private static FsrsRating ToFsrsRating(
+            RecallRating rating
+        )
+        {
+            return rating switch
+            {
+                RecallRating.Again => FsrsRating.Again,
+
+                RecallRating.Hard => FsrsRating.Hard,
+
+                RecallRating.Good => FsrsRating.Good,
+
+                RecallRating.Easy => FsrsRating.Easy,
+
+                _ =>
+                    throw new ArgumentOutOfRangeException(
+                        nameof(rating)
+                    )
+            };
+        }
+
+        private enum FsrsRating
+        {
+            Again = 1,
+            Hard = 2,
+            Good = 3,
+            Easy = 4
+        }
     }
 }

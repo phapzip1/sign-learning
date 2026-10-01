@@ -1,380 +1,875 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+
+import {
+  Eye,
+  Lightbulb,
+  Loader2,
+  Plus,
+} from "lucide-react";
+
+import { useAuth } from "@clerk/tanstack-react-start";
 import { createFileRoute } from "@tanstack/react-router";
+
+
+import { Badge } from "@/components/ui/badge";
+
+import { Button } from "@/components/ui/button";
+
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+
 import { Input } from "@/components/ui/input";
+
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 import {
   Sheet,
-  SheetTrigger,
   SheetContent,
-  SheetHeader,
-  SheetFooter,
-  SheetTitle,
   SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
 } from "@/components/ui/sheet";
+
 import {
   Table,
-  TableHeader,
   TableBody,
-  TableRow,
-  TableHead,
   TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
+
 import {
-  type SortingState,
-  createColumnHelper,
-  flexRender,
-  // features
-  columnFilteringFeature,
-  columnVisibilityFeature,
-  createFilteredRowModel,
-  createPaginatedRowModel,
-  createSortedRowModel,
-  filterFn_includesString,
-  rowPaginationFeature,
-  rowSelectionFeature,
-  rowSortingFeature,
-  sortFn_alphanumeric,
-  sortFn_text,
-  tableFeatures,
-  useTable,
-} from "@tanstack/react-table";
-import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxList
-} from "@/components/ui/combobox";
-import { WordKinds } from "@/src/types/word.type";
-import { Card, CardContent } from "@/components/ui/card";
+  Textarea,
+} from "@/components/ui/textarea";
+import { WORD_LEVELS, WordLevel } from "@/src/types/word.type";
+import { CreateSuggestionPayload, SuggestionStatus, WordSuggestion } from "@/src/types/suggestion.type";
+import { createSuggestion, getSuggestions } from "@/src/lib/api";
+import { WORD_TOPICS } from "@/src/types/topic.type";
 
-type FormState = {
-  word: string;
-  translation: string;
-  partOfSpeech: string;
-  description: string;
-  example: string;
-  tags: string;
+
+const emptyForm: CreateSuggestionPayload = {
+  value: "",
+  meaning: "",
+  level: "Beginner",
+  topic: 7,
+  demoURL: "",
+  instruction: "",
+  note: "",
 };
 
-const initialState: FormState = {
-  word: "",
-  translation: "",
-  partOfSpeech: "",
-  description: "",
-  example: "",
-  tags: "",
-};
 
-type Suggestion = {
-  id: string;
-  word: string;
-  translation: string;
-  partOfSpeech?: string;
-  description?: string;
-  example?: string;
-  tags?: string[];
-  createdAt: string;
-};
-
-const STORAGE_KEY = "suggestions";
-
-// Register table features (v9+): filtering, visibility, pagination, selection, sorting
-export const features = tableFeatures({
-  columnFilteringFeature,
-  columnVisibilityFeature,
-  rowPaginationFeature,
-  rowSelectionFeature,
-  rowSortingFeature,
-  filteredRowModel: createFilteredRowModel(),
-  paginatedRowModel: createPaginatedRowModel(),
-  sortedRowModel: createSortedRowModel(),
-  filterFns: { includesString: filterFn_includesString },
-  sortFns: { alphanumeric: sortFn_alphanumeric, text: sortFn_text },
-});
-
-const columnHelper = createColumnHelper<typeof features, Suggestion>();
-const columns = columnHelper.columns(
-  [
-    columnHelper.accessor("word", {
-      header: "Word",
-      cell: (info) => info.getValue(),
-    }),
-    columnHelper.accessor("translation", {
-      header: "Translation",
-      cell: (info) => info.getValue(),
-    }),
-    columnHelper.accessor((row) => row.partOfSpeech ?? "", {
-      id: "partOfSpeech",
-      header: "Part of speech",
-      cell: (info) => info.getValue() || "-",
-    }),
-    columnHelper.accessor((row) => (row.tags || []).join(", "), {
-      id: "tags",
-      header: "Tags",
-      cell: (info) => info.getValue(),
-    }),
-    columnHelper.accessor("description", {
-      header: "Description",
-      cell: (info) => {
-        const v = info.getValue<string>() || "";
-        return v.length > 80 ? v.slice(0, 80) + "…" : v;
-      },
-    }),
-    columnHelper.accessor("createdAt", {
-      header: "Submitted",
-      cell: (info) => new Date(info.getValue()).toLocaleString(),
-    }),
-  ],
-);
-
-export type DataTableFeatures = typeof features;
-
-const WordSuggestionsPage: React.FC = () => {
-  const [form, setForm] = useState<FormState>(initialState);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [open, setOpen] = useState(false);
-  const [items, setItems] = useState<Suggestion[]>([]);
-
-  // Table state
-  const [sorting, setSorting] = useState<SortingState>([]);
-  const [pageSize, setPageSize] = useState<number>(10);
-
-  const table = useTable({
-    features,
-    columns,
-    data: items,
-  });
-
-  useEffect(() => {
-    try {
-      const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]") as Suggestion[];
-      setItems(existing.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)));
-    } catch {
-      setItems([]);
+const formatDate = (value: string) => {
+  return new Date(value).toLocaleDateString(
+    undefined,
+    {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
     }
-  }, []);
+  );
+}
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setForm((s) => ({ ...s, [name]: value }));
-  };
-
-  const validate = (): string | null => {
-    if (!form.word.trim()) return "Word is required";
-    if (!form.translation.trim()) return "Translation is required";
-    return null;
-  };
-
-  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError(null);
-    setSuccess(null);
-
-    const v = validate();
-    if (v) {
-      setError(v);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const newItem: Suggestion = {
-        id: (typeof crypto !== "undefined" && typeof (crypto as any).randomUUID === "function") ? (crypto as any).randomUUID() : String(Date.now()),
-        word: form.word.trim(),
-        translation: form.translation.trim(),
-        partOfSpeech: form.partOfSpeech || undefined,
-        description: form.description || undefined,
-        example: form.example || undefined,
-        tags: form.tags.split(",").map((t) => t.trim()).filter(Boolean) || [],
-        createdAt: new Date().toISOString(),
-      };
-
-      const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]") as Suggestion[];
-      const updated = [newItem, ...existing];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-
-      setItems(updated);
-      setSuccess("Suggestion submitted — thank you!");
-      setForm(initialState);
-      setOpen(false);
-    } catch (err: any) {
-      setError(err?.message || "Failed to submit suggestion");
-    } finally {
-      setLoading(false);
-    }
-  };
-
+const Detail: React.FC<{
+  label: string;
+  value: string;
+}> = ({ label, value }) => {
   return (
-    <div className="w-400 mx-auto">
-      <Card className="rounded p-0 mb-4">
-        <CardContent className="flex items-center justify-between py-4">
-          <h2 className="block text-xl font-semibold">Your suggestions</h2>
-          <Sheet open={open} onOpenChange={setOpen}>
-            <SheetTrigger
-              className={buttonVariants({ variant: "default" })}
-            >
-              Suggest a new word
-            </SheetTrigger>
-            <SheetContent side="right">
-              <SheetHeader>
-                <SheetTitle>Suggest a New Word</SheetTitle>
-                <SheetDescription>Provide details about the sign and submit it for review.</SheetDescription>
-              </SheetHeader>
+    <div>
+      <p className="text-sm font-medium">
+        {label}
+      </p>
 
-              <div className="p-8">
-                {error && <div className="text-red-700 bg-red-100 p-2 rounded mb-4">{error}</div>}
-                {success && <div className="text-green-700 bg-green-100 p-2 rounded mb-4">{success}</div>}
-
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div>
-                    <Label className="mb-1">Word (in sign language)</Label>
-                    <Input name="word" value={form.word} onChange={handleChange} placeholder="Enter the word or gloss" required />
-                  </div>
-
-                  <div>
-                    <Label className="mb-1">Meaning</Label>
-                    <Input
-                      name="translation"
-                      value={form.translation}
-                      onChange={handleChange}
-                      placeholder="English translation"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <Label className="mb-1">Part of speech</Label>
-                    <Combobox items={WordKinds}>
-                      <ComboboxInput placeholder="All category" className="mb-2" readOnly required />
-                      <ComboboxContent>
-                        <ComboboxEmpty>No items found.</ComboboxEmpty>
-                        <ComboboxList>
-                          {(item: string) => (
-                            <ComboboxItem key={item} value={item}>
-                              {item.toUpperCase()}
-                            </ComboboxItem>
-                          )}
-                        </ComboboxList>
-                      </ComboboxContent>
-                    </Combobox>
-                  </div>
-
-                  <div>
-                    <Label className="mb-1">Description</Label>
-                    <Textarea name="description" value={form.description} onChange={handleChange} placeholder="Usage notes, handshape, movement, or link to a video recording" rows={4} />
-                  </div>
-
-                  <div>
-                    <Label className="mb-1">Tags (comma separated)</Label>
-                    <Input name="tags" value={form.tags} onChange={handleChange} placeholder="e.g. food,vegetable,basic" />
-                  </div>
-
-                  <div className="flex items-center gap-3 mt-4">
-                    <Button type="submit" variant="default" disabled={loading}>
-                      {loading ? "Submitting..." : "Submit Suggestion"}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setForm(initialState);
-                        setError(null);
-                        setSuccess(null);
-                      }}
-                    >
-                      Reset
-                    </Button>
-                  </div>
-                </form>
-              </div>
-
-              <SheetFooter />
-            </SheetContent>
-          </Sheet>
-        </CardContent>
-      </Card>
-
-      <Card className="rounded p-0">
-        <CardContent className="py-4">
-          <div className="mb-3 flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">Showing {items.length} suggestion{items.length !== 1 ? "s" : ""}</div>
-          </div>
-
-          <Table>
-            <TableHeader>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id}>
-                      {header.isPlaceholder ? null : (
-                        <div
-                          className="flex items-center gap-2 cursor-pointer select-none"
-                          onClick={header.column.getToggleSortingHandler()}
-                        >
-                          {
-                            flexRender(header.column.columnDef.header, header.getContext())
-                          }
-                          <span className="opacity-50 text-xs">
-                            {header.column.getIsSorted() === "asc" ? " ▲" : header.column.getIsSorted() === "desc" ? " ▼" : ""}
-                          </span>
-                        </div>
-                      )}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {table.getRowModel().rows.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="p-6 text-center text-muted-foreground">
-                    No suggestions yet. Use the button above to add one.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                table.getRowModel().rows.map((row) => (
-                  <TableRow key={row.id}>
-                    {
-                      row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>
-                          {
-                            flexRender(cell.column.columnDef.cell, cell.getContext())
-                          }
-                        </TableCell>
-                      ))
-                    }
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">
-              Page {table.state.pagination.pageIndex + 1} of {table.getPageCount()}
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
-                Previous
-              </Button>
-              <Button variant="outline" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
-                Next
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
+        {value}
+      </p>
     </div>
   );
 }
 
+const StatusBadge: React.FC<{
+  status: SuggestionStatus
+}> = ({ status }) => {
+  switch (status) {
+    case "Approved":
+      return (
+        <Badge>
+          Approved
+        </Badge>
+      );
+
+    case "Rejected":
+      return (
+        <Badge variant="destructive">
+          Rejected
+        </Badge>
+      );
+
+    default:
+      return (
+        <Badge variant="secondary">
+          Pending
+        </Badge>
+      );
+  }
+}
+
+const ViewSuggestionSheet: React.FC<{
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  suggestion: WordSuggestion | null;
+}> = ({ open, onOpenChange, suggestion }) => {
+  if (!suggestion)
+    return null;
+
+  const topic = WORD_TOPICS.find((item) => item.name === suggestion.topic);
+
+  return (
+    <Sheet
+      open={open}
+      onOpenChange={
+        onOpenChange
+      }
+    >
+      <SheetContent
+        side="right"
+        className="w-full overflow-y-auto sm:max-w-xl min-w-130"
+      >
+
+        <SheetHeader>
+          <div className="flex items-center justify-between gap-4">
+
+            <div>
+              <SheetTitle>
+                {
+                  suggestion.value
+                }
+              </SheetTitle>
+
+              <SheetDescription>
+                Submitted{" "}
+                {formatDate(
+                  suggestion.createdAt
+                )}
+              </SheetDescription>
+            </div>
+
+            <StatusBadge
+              status={
+                suggestion.status
+              }
+            />
+
+          </div>
+        </SheetHeader>
+
+        <div className="grid gap-6 px-4 py-6">
+
+          <Detail
+            label="Meaning"
+            value={
+              suggestion.meaning
+            }
+          />
+
+          <div className="grid grid-cols-2 gap-4">
+
+            <Detail
+              label="Level"
+              value={
+                suggestion.level
+              }
+            />
+
+            <Detail
+              label="Topic"
+              value={topic?.name ?? "Invalid"}
+            />
+
+          </div>
+
+          {suggestion.demoURL && (
+            <Detail
+              label="Demo URL"
+              value={
+                suggestion.demoURL
+              }
+            />
+          )}
+
+          {suggestion.instruction && (
+            <Detail
+              label="Instruction"
+              value={
+                suggestion.instruction
+              }
+            />
+          )}
+
+          {suggestion.note && (
+            <Detail
+              label="Your Note"
+              value={
+                suggestion.note
+              }
+            />
+          )}
+
+          {suggestion.reviewNote && (
+            <div className="rounded-lg border bg-muted/30 p-4">
+
+              <p className="text-sm font-medium">
+                Review Note
+              </p>
+
+              <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
+                {
+                  suggestion.reviewNote
+                }
+              </p>
+
+            </div>
+          )}
+
+          {
+            suggestion.status === "Approved" &&
+            suggestion.approvedWordId && (
+              <div className="rounded-lg border p-4">
+
+                <p className="text-sm font-medium">
+                  Approved
+                </p>
+
+                <p className="mt-1 text-sm text-muted-foreground">
+                  This suggestion was
+                  added to the
+                  dictionary as Word #
+                  {
+                    suggestion.approvedWordId
+                  }.
+                </p>
+
+              </div>
+            )}
+
+        </div>
+
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+const CreateSuggestionSheet: React.FC<{
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onCreated?: () => void;
+}> = ({ open, onOpenChange, onCreated, }) => {
+  const { getToken } = useAuth();
+
+  const [form, setForm] = useState<CreateSuggestionPayload>(emptyForm);
+  const [submitting, setSubmitting] = useState(false);
+
+  const valid = form.value.trim().length > 0 && form.meaning.trim().length > 0;
+
+  const handleOpenChange = (value: boolean) => {
+    onOpenChange(value);
+
+    if (!value) {
+      setForm(emptyForm);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!valid)
+      return;
+
+    const token = await getToken();
+
+    if (!token)
+      return;
+
+    setSubmitting(true);
+
+    try {
+      await createSuggestion(
+        {
+          value: form.value.trim(),
+          meaning: form.meaning.trim(),
+          level: form.level,
+          topic: form.topic,
+          demoURL: form.demoURL?.trim() || undefined,
+          instruction: form.instruction?.trim() || undefined,
+          note: form.note?.trim() || undefined,
+        },
+        token
+      );
+
+      setForm(emptyForm);
+
+      onOpenChange(false);
+
+      onCreated?.();
+    }
+    catch (error) {
+      console.error("Unable to create suggestion", error);
+    }
+    finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Sheet
+      open={open}
+      onOpenChange={
+        handleOpenChange
+      }
+    >
+      <SheetContent
+        side="right"
+        className="w-full overflow-y-auto sm:max-w-xl min-w-130"
+      >
+
+        <SheetHeader>
+          <SheetTitle>
+            Suggest a Word
+          </SheetTitle>
+
+          <SheetDescription>
+            Submit a word for review.
+            An admin will review it
+            before it is added to the
+            dictionary.
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="grid gap-5 px-4 py-6">
+
+          <div className="grid gap-2">
+
+            <Label htmlFor="suggestion-word">
+              Word
+            </Label>
+
+            <Input
+              id="suggestion-word"
+              value={
+                form.value
+              }
+              placeholder="Computer"
+              onChange={(e) => setForm({
+                ...form,
+                value: e.target.value,
+              })
+              }
+            />
+
+          </div>
+
+          <div className="grid gap-2">
+
+            <Label htmlFor="suggestion-meaning">
+              Meaning
+            </Label>
+
+            <Textarea
+              id="suggestion-meaning"
+              value={
+                form.meaning
+              }
+              placeholder="What does this word mean?"
+              rows={3}
+              onChange={(e) => setForm({
+                ...form,
+                meaning: e.target.value,
+              })
+              }
+            />
+
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+
+            <div className="grid gap-2">
+
+              <Label>
+                Level
+              </Label>
+
+              <Select
+                value={form.level}
+                onValueChange={(
+                  value
+                ) =>
+                  setForm({
+                    ...form,
+                    level: value as WordLevel,
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+
+                <SelectContent>
+                  {
+                    WORD_LEVELS.map((level) => (
+                      <SelectItem
+                        key={level}
+                        value={level}
+                      >
+                        {level}
+                      </SelectItem>
+                    )
+                    )}
+
+                </SelectContent>
+              </Select>
+
+            </div>
+
+            <div className="grid gap-2">
+
+              <Label>
+                Topic
+              </Label>
+
+              <Select
+                value={form.topic}
+                itemToStringLabel={(item) => WORD_TOPICS.find(t => item === t.id)?.value || "Invalid"}
+                onValueChange={(value) =>
+                  setForm({
+                    ...form,
+                    topic: value || 0,
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+
+                <SelectContent>
+                  {
+                    WORD_TOPICS.map(
+                      (topic) => (
+                        <SelectItem
+                          key={topic.id}
+                          value={topic.id}
+                        >
+                          {
+                            topic.value
+                          }
+                        </SelectItem>
+                      )
+                    )
+                  }
+
+                </SelectContent>
+              </Select>
+
+            </div>
+
+          </div>
+
+          <div className="grid gap-2">
+
+            <Label htmlFor="suggestion-demo">
+              Demo URL
+              <span className="ml-1 text-muted-foreground">
+                (optional)
+              </span>
+            </Label>
+
+            <Input
+              id="suggestion-demo"
+              value={
+                form.demoURL
+              }
+              placeholder="https://..."
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  demoURL:
+                    e.target.value,
+                })
+              }
+            />
+
+          </div>
+
+          <div className="grid gap-2">
+
+            <Label htmlFor="suggestion-instruction">
+              Instruction
+              <span className="ml-1 text-muted-foreground">
+                (optional)
+              </span>
+            </Label>
+
+            <Textarea
+              id="suggestion-instruction"
+              value={
+                form.instruction
+              }
+              rows={5}
+              placeholder="Describe how the sign is performed..."
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  instruction:
+                    e.target.value,
+                })
+              }
+            />
+
+          </div>
+
+          <div className="grid gap-2">
+
+            <Label htmlFor="suggestion-note">
+              Note
+              <span className="ml-1 text-muted-foreground">
+                (optional)
+              </span>
+            </Label>
+
+            <Textarea
+              id="suggestion-note"
+              value={
+                form.note
+              }
+              rows={3}
+              placeholder="Anything else the reviewer should know?"
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  note:
+                    e.target.value,
+                })
+              }
+            />
+
+          </div>
+
+        </div>
+
+        <SheetFooter>
+
+          <Button
+            variant="outline"
+            disabled={
+              submitting
+            }
+            onClick={() =>
+              handleOpenChange(
+                false
+              )
+            }
+          >
+            Cancel
+          </Button>
+
+          <Button
+            disabled={
+              submitting ||
+              !valid
+            }
+            onClick={
+              handleSubmit
+            }
+          >
+            {submitting ? (
+              <Loader2 className="mr-2 size-4 animate-spin" />
+            ) : (
+              <Lightbulb className="mr-2 size-4" />
+            )}
+
+            Submit Suggestion
+          </Button>
+
+        </SheetFooter>
+
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+const SuggestionsTab = () => {
+  const { getToken } = useAuth();
+
+  const [suggestions, setSuggestions] = useState<WordSuggestion[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [selected, setSelected] = useState<WordSuggestion | null>(null);
+
+  const [viewOpen, setViewOpen] = useState(false);
+
+  useEffect(() => {
+    loadSuggestions();
+  }, []);
+
+  const loadSuggestions =
+    async () => {
+      setLoading(true);
+
+      try {
+        const token = await getToken();
+
+        if (!token)
+          return;
+
+        const result = await getSuggestions(token);
+
+        setSuggestions(
+          result
+        );
+      }
+      catch (error) {
+        console.error(
+          "Unable to load suggestions",
+          error
+        );
+      }
+      finally {
+        setLoading(false);
+      }
+    };
+
+  const openSuggestion = (suggestion: WordSuggestion) => {
+    setSelected(suggestion);
+
+    setViewOpen(true);
+  };
+
+  const handleViewOpenChange = (open: boolean) => {
+    setViewOpen(open);
+
+    if (!open) {
+      setSelected(null);
+    }
+  };
+
+  return (
+    <>
+      <Card>
+
+        <CardHeader>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+
+            <div>
+              <CardTitle>
+                Word Suggestions
+              </CardTitle>
+
+              <CardDescription>
+                Suggest new words and
+                track their review
+                status.
+              </CardDescription>
+            </div>
+
+            <Button
+              onClick={() =>
+                setCreateOpen(
+                  true
+                )
+              }
+            >
+              <Plus className="mr-2 size-4" />
+
+              New Suggestion
+            </Button>
+
+          </div>
+        </CardHeader>
+
+        <CardContent>
+
+          {loading ? (
+            <div className="flex min-h-64 items-center justify-center">
+
+              <Loader2 className="size-6 animate-spin text-muted-foreground" />
+
+            </div>
+          ) : suggestions.length ===
+            0 ? (
+            <div className="flex min-h-64 flex-col items-center justify-center text-center">
+
+              <Lightbulb className="mb-3 size-9 text-muted-foreground" />
+
+              <p className="font-medium">
+                No suggestions yet
+              </p>
+
+              <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                Suggest a word you
+                would like to see added
+                to the dictionary.
+              </p>
+
+              <Button
+                className="mt-4"
+                onClick={() =>
+                  setCreateOpen(
+                    true
+                  )
+                }
+              >
+                <Plus className="mr-2 size-4" />
+
+                Suggest a Word
+              </Button>
+
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-md border">
+
+              <Table>
+
+                <TableHeader>
+                  <TableRow>
+
+                    <TableHead>
+                      Word
+                    </TableHead>
+
+                    <TableHead>
+                      Meaning
+                    </TableHead>
+
+                    <TableHead>
+                      Level
+                    </TableHead>
+
+                    <TableHead>
+                      Topic
+                    </TableHead>
+
+                    <TableHead>
+                      Submitted
+                    </TableHead>
+
+                    <TableHead>
+                      Status
+                    </TableHead>
+
+                    <TableHead className="w-20" />
+
+                  </TableRow>
+                </TableHeader>
+
+                <TableBody>
+                  {
+                    suggestions.map((suggestion) => {
+                      const topic = WORD_TOPICS.find((t) => t.name === suggestion.topic);
+
+                      return (
+                        <TableRow
+                          key={suggestion.id}
+                        >
+
+                          <TableCell className="font-medium">
+                            {
+                              suggestion.value
+                            }
+                          </TableCell>
+
+                          <TableCell>
+                            <p className="max-w-80 truncate">
+                              {
+                                suggestion.meaning
+                              }
+                            </p>
+                          </TableCell>
+
+                          <TableCell>
+                            <Badge variant="outline">
+                              {
+                                suggestion.level
+                              }
+                            </Badge>
+                          </TableCell>
+
+                          <TableCell>
+                            {
+                              topic?.value ??
+                              "Other"
+                            }
+                          </TableCell>
+
+                          <TableCell>
+                            {formatDate(suggestion.createdAt)}
+                          </TableCell>
+
+                          <TableCell>
+                            <StatusBadge
+                              status={suggestion.status}
+                            />
+                          </TableCell>
+
+                          <TableCell>
+
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() =>
+                                openSuggestion(suggestion)
+                              }
+                            >
+                              <Eye className="size-4" />
+
+                              <span className="sr-only">
+                                View suggestion
+                              </span>
+                            </Button>
+
+                          </TableCell>
+
+                        </TableRow>
+                      );
+                    }
+                    )}
+
+                </TableBody>
+
+              </Table>
+
+            </div>
+          )}
+
+        </CardContent>
+
+      </Card>
+
+      <CreateSuggestionSheet
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCreated={loadSuggestions}
+      />
+
+      <ViewSuggestionSheet
+        open={viewOpen}
+        onOpenChange={handleViewOpenChange}
+        suggestion={selected}
+      />
+    </>
+  );
+}
+
 export const Route = createFileRoute("/me/suggestions")({
-  component: WordSuggestionsPage,
+  component: SuggestionsTab,
 });

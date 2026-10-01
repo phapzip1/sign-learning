@@ -11,6 +11,9 @@ namespace Service.Controllers
     {
         private readonly Services.IReviewService mReviewService = mReviewService;
 
+        private string? UserId => User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+
         [HttpGet("study")]
         public async Task<IActionResult> GetStudy(string deckId)
         {

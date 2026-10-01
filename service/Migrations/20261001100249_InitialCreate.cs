@@ -23,8 +23,8 @@ namespace service.Migrations
                     Name = table.Column<string>(type: "longtext", nullable: false),
                     UserId = table.Column<string>(type: "longtext", nullable: false),
                     Description = table.Column<string>(type: "longtext", nullable: false),
-                    LearningSteps = table.Column<int[]>(type: "longtext", nullable: false),
-                    RelearningSteps = table.Column<int[]>(type: "longtext", nullable: false),
+                    LearningSteps = table.Column<string>(type: "json", nullable: false),
+                    RelearningSteps = table.Column<string>(type: "json", nullable: false),
                     MaximumInterval = table.Column<uint>(type: "int unsigned", nullable: false),
                     NewCardsPerDay = table.Column<uint>(type: "int unsigned", nullable: false),
                     MaximumReviewsPerDay = table.Column<uint>(type: "int unsigned", nullable: false),
@@ -56,6 +56,34 @@ namespace service.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Words", x => x.Id);
+                })
+                .Annotation("MySQL:Charset", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "WordSuggestions",
+                columns: table => new
+                {
+                    Id = table.Column<string>(type: "varchar(255)", nullable: false),
+                    UserId = table.Column<string>(type: "longtext", nullable: false),
+                    Value = table.Column<string>(type: "longtext", nullable: false),
+                    Meaning = table.Column<string>(type: "longtext", nullable: false),
+                    Level = table.Column<int>(type: "int", nullable: false),
+                    Topic = table.Column<int>(type: "int", nullable: false),
+                    Cover = table.Column<string>(type: "longtext", nullable: true),
+                    DemoURL = table.Column<string>(type: "longtext", nullable: true),
+                    Instruction = table.Column<string>(type: "longtext", nullable: true),
+                    Note = table.Column<string>(type: "longtext", nullable: true),
+                    Status = table.Column<int>(type: "int", nullable: false),
+                    ApprovedWordId = table.Column<uint>(type: "int unsigned", nullable: true),
+                    ReviewedByUserId = table.Column<string>(type: "longtext", nullable: true),
+                    ReviewNote = table.Column<string>(type: "longtext", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    ReviewedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_WordSuggestions", x => x.Id);
                 })
                 .Annotation("MySQL:Charset", "utf8mb4");
 
@@ -138,6 +166,9 @@ namespace service.Migrations
         {
             migrationBuilder.DropTable(
                 name: "ReviewLogs");
+
+            migrationBuilder.DropTable(
+                name: "WordSuggestions");
 
             migrationBuilder.DropTable(
                 name: "Cards");

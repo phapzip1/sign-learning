@@ -11,7 +11,7 @@ using Service.Data;
 namespace service.Migrations
 {
     [DbContext(typeof(SignLearningContext))]
-    [Migration("20260928024243_InitialCreate")]
+    [Migration("20261001100249_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -82,9 +82,9 @@ namespace service.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
-                    b.PrimitiveCollection<int[]>("LearningSteps")
+                    b.Property<string>("LearningSteps")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasColumnType("json");
 
                     b.Property<uint>("MaximumInterval")
                         .HasColumnType("int unsigned");
@@ -99,9 +99,9 @@ namespace service.Migrations
                     b.Property<uint>("NewCardsPerDay")
                         .HasColumnType("int unsigned");
 
-                    b.PrimitiveCollection<int[]>("RelearningSteps")
+                    b.Property<string>("RelearningSteps")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasColumnType("json");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime(6)");
@@ -185,6 +185,67 @@ namespace service.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Words");
+                });
+
+            modelBuilder.Entity("Service.Models.WordSuggestion", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<uint?>("ApprovedWordId")
+                        .HasColumnType("int unsigned");
+
+                    b.Property<string>("Cover")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DemoURL")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Instruction")
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("Level")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Meaning")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ReviewNote")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ReviewedByUserId")
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Topic")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("WordSuggestions");
                 });
 
             modelBuilder.Entity("Service.Models.Card", b =>

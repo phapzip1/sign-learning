@@ -38,7 +38,7 @@ namespace Service.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Policy = "Admin")]
         public async Task<ActionResult<Models.Word>> Create(
             [FromBody] Services.IWordService.WordUpsertParams request
         )
@@ -53,7 +53,9 @@ namespace Service.Controllers
         }
 
         [HttpPut("{id}")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Policy = "Admin")]
+
+
         public async Task<ActionResult<Models.Word>> Update(
             uint id, [FromBody]
             Services.IWordService.WordUpsertParams request
@@ -66,7 +68,8 @@ namespace Service.Controllers
         }
 
         [HttpDelete("{id}")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Policy = "Admin")]
+
         public async Task<IActionResult> Delete(uint id)
         {
             try

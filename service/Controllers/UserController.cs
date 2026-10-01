@@ -107,5 +107,18 @@ namespace Service.Controllers
             }
         }
 
+        [Authorize]
+        [HttpGet("claims")]
+        public IActionResult DebugClaims()
+        {
+            return Ok(
+                User.Claims.Select(x => new
+                {
+                    type = x.Type,
+                    value = x.Value
+                })
+            );
+        }
     }
+
 }

@@ -1,10 +1,13 @@
 import axios from "axios";
 import qs from "qs";
-import { RemoteWordCard, RemoteWordItem, WordItem, WordLevel, WORDSORTs } from "@/src/types/word.type";
-import { TOPICS } from "@/src/types/topic.type";
+import { createServerFn } from "@tanstack/react-start";
+import { clerkClient } from "@clerk/tanstack-react-start/server";
+import { RemoteWordCard, RemoteWordItem, RemoteWordListResponse, WordItem, WordLevel, WORDSORTs, WordUpsertPayload } from "@/src/types/word.type";
+import { TOPICS, WORD_TOPICS } from "@/src/types/topic.type";
 import { RemoteCollection, RemoteCollectionCard, RemoteCollectionUpsert } from "@/src/types/collection.type";
 import { RemoteActivityPoint, RemoteDailyActivity } from "@/src/types/stats.type";
 import { RemoteStudy, ReviewPayload } from "@/src/types/study.type";
+import { ApproveSuggestionPayload, CreateSuggestionPayload, RemoteRejectSuggestion, RemoteSuggestionApproval, SuggestionStatus, WordSuggestion } from "@/src/types/suggestion.type";
 
 const api = axios.create({
     baseURL: "http://localhost:5026",
@@ -53,7 +56,7 @@ const getWord = async (id: string) => {
         level: data.level,
         createdAt: data.createdAt,
         updatedAt: data.updatedAt,
-        topic: TOPICS.find((topic) => topic.id === data.topic) ?? TOPICS[TOPICS.length - 1],
+        topic: TOPICS.find((topic) => topic.name === data.topic) ?? TOPICS[TOPICS.length - 1],
     } satisfies WordItem;
 }
 
@@ -71,7 +74,7 @@ const getWordList = async (params: {
     params.page ??= 0;
     params.levels ??= ["Beginner", "Intermediate", "Advance"];
 
-    const { data, status, statusText } = await api.get<{ page: number; pageSize: number; totalPages: number; items: RemoteWordItem[] }>(`api/words`, {
+    const { data, status, statusText } = await api.get<RemoteWordListResponse>(`api/words`, {
         params: {
             ...params,
             sort: params.sortId
@@ -85,6 +88,7 @@ const getWordList = async (params: {
         throw new Error(statusText);
     }
 
+
     return {
         ...data,
         items: data.items.map(item => ({
@@ -95,7 +99,7 @@ const getWordList = async (params: {
             description: item.meaning,
             level: item.level,
             cover: item.cover,
-            topic: TOPICS.find((topic) => topic.id === item.topic) ?? TOPICS[TOPICS.length - 1],
+            topic: WORD_TOPICS.find(topic => item.topic === topic.name) || WORD_TOPICS[WORD_TOPICS.length - 1],
             createdAt: item.createdAt,
             updatedAt: item.updatedAt,
         } satisfies WordItem))
@@ -206,9 +210,6 @@ const getHeatmapStats = async (year: number, auth: string) => {
         }
     });
 
-    console.log(data);
-
-
     return data;
 }
 
@@ -232,11 +233,11 @@ const getYearsStats = async (auth: string) => {
     return data;
 }
 
-const getStudy = async (deckId: string, auth: string) => {
+const getStudy = async (deckId: string, token: string) => {
     const { data } = await api.get<RemoteStudy>(`/api/decks/${deckId}/study`,
         {
             headers: {
-                Authorization: auth,
+                Authorization: `Bearer ${token}`,
             },
         }
     );
@@ -244,12 +245,12 @@ const getStudy = async (deckId: string, auth: string) => {
     return data;
 };
 
-const reviewCard = async (cardId: string, deckId: string, reviewData: ReviewPayload, auth: string) => {
-    const { data } = await api.get<RemoteStudy>(`/api/decks/${deckId}/cards/${cardId}/review`,
+const reviewCard = async (cardId: string, deckId: string, reviewData: ReviewPayload, token: string) => {
+    const { data } = await api.post<RemoteStudy>(`/api/decks/${deckId}/cards/${cardId}/review`,
+        reviewData,
         {
-            data: reviewData,
             headers: {
-                Authorization: auth,
+                "Authorization": `Bearer ${token}`,
             },
         }
     );
@@ -257,6 +258,167 @@ const reviewCard = async (cardId: string, deckId: string, reviewData: ReviewPayl
     return data;
 }
 
+const getAdminUsers = createServerFn({ method: "GET" })
+    .validator((data: {
+        page: number;
+        pageSize: number;
+        search?: string;
+    }) => data)
+    .handler(async ({ data }) => {
+        const page = Math.max(1, data.page);
+        const pageSize = Math.min(
+            Math.max(1, data.pageSize),
+            100
+        );
+
+        const offset = (page - 1) * pageSize;
+
+        const client = clerkClient({
+            secretKey: process.env.CLERK_SECRET_KEY,
+        });
+
+        const result = await client.users.getUserList({
+            limit: pageSize,
+            offset,
+            orderBy: "-created_at",
+            ...(data.search?.trim()
+                ? {
+                    query:
+                        data.search.trim(),
+                }
+                : {}),
+        });
+
+        return {
+            page,
+            pageSize,
+
+            total: result.totalCount,
+
+            totalPages: Math.ceil(
+                result.totalCount / pageSize
+            ),
+
+            items: result.data.map(
+                user => ({
+                    id: user.id,
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                    email: user.primaryEmailAddress?.emailAddress ?? "",
+                    imageUrl: user.imageUrl,
+                    createdAt: user.createdAt,
+                    lastSignInAt: user.lastSignInAt,
+                })
+            ),
+        };
+    });
+
+const getAdminSuggestions = async (status: SuggestionStatus | undefined, token: string) => {
+    const { data } = await api.get<WordSuggestion[]>("/api/admin/word-suggestions",
+        {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+
+            params: status
+                ? {
+                    status,
+                }
+                : undefined,
+        }
+    );
+
+    return data;
+};
+
+const getSuggestions = async (token: string): Promise<WordSuggestion[]> => {
+    const { data } = await api.get<WordSuggestion[]>("/api/word-suggestions/mine",
+        {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        }
+    );
+
+    return data;
+};
+
+const approveSuggestion = async (suggestionId: string, payload: ApproveSuggestionPayload, token: string) => {
+    const { data } = await api.post<RemoteSuggestionApproval>(`/api/admin/word-suggestions/${suggestionId}/approve`,
+        payload,
+        {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        }
+    );
+
+    return data;
+};
+
+const rejectSuggestion = async (suggestionId: string, payload: RemoteRejectSuggestion, token: string) => {
+    const { data } = await api.post<WordSuggestion>(`/api/admin/word-suggestions/${suggestionId}/reject`,
+        payload,
+        {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        }
+    );
+
+    return data;
+};
+
+const createWord = async (payload: WordUpsertPayload, token: string) => {
+    const { data } = await api.post<RemoteWordItem>("/api/words",
+        payload,
+        {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        }
+    );
+
+    return data;
+};
+
+const updateWord = async (wordId: number, payload: WordUpsertPayload, token: string) => {
+    const { data } = await api.put<RemoteWordItem>(`/api/words/${wordId}`,
+        payload,
+        {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        }
+    );
+
+    return data;
+};
+
+const createSuggestion = async (payload: CreateSuggestionPayload, token: string) => {
+    const { data } = await api.post<WordSuggestion>("/api/word-suggestions",
+        payload,
+        {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        }
+    );
+
+    return data;
+}
+
+const getClaims = async (token: string) => {
+    const { data } = await api.get<{ type: string; value: string; }>("/api/users/claims",
+        {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        }
+    );
+
+    return data;
+}
 
 export {
     getWord,
@@ -275,4 +437,13 @@ export {
     getYearsStats,
     getStudy,
     reviewCard,
+    getAdminUsers,
+    getAdminSuggestions,
+    getSuggestions,
+    createSuggestion,
+    approveSuggestion,
+    rejectSuggestion,
+    createWord,
+    updateWord,
+    getClaims,
 }

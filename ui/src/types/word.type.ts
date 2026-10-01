@@ -11,6 +11,9 @@ export const WORDSORTs = [
 
 export type WordLevel = "Beginner" | "Intermediate" | "Advance";
 
+export const WORD_LEVELS: WordLevel[] = ["Beginner", "Intermediate", "Advance"];
+
+
 export type WordItem = {
     id: number;
     title: string;
@@ -20,8 +23,8 @@ export type WordItem = {
     level: WordLevel;
     topic: Topic;
     cover: string;
-    createdAt: Date;
-    updatedAt: Date;
+    createdAt: string;
+    updatedAt: string;
 }
 
 export type RemoteWordItem = {
@@ -32,9 +35,9 @@ export type RemoteWordItem = {
     cover: string;
     instruction: string;
     level: WordLevel;
-    topic: number;
-    createdAt: Date;
-    updatedAt: Date;
+    topic: Topic["name"];
+    createdAt: string;
+    updatedAt: string;
 }
 
 export type RemoteWordCard = {
@@ -46,5 +49,22 @@ export type RemoteWordCard = {
     level: WordLevel;
     topic: string;
     state: "New" | "Learning" | "Due";
-    updatedAt: Date;
+    updatedAt: string;
+}
+
+export type WordUpsertPayload = {
+    value: string;
+    cover: string;
+    meaning: string;
+    level: WordLevel;
+    demoURL: string;
+    instruction: string;
+    topic: number;
+};
+
+export type RemoteWordListResponse = {
+    page: number;
+    pageSize: number;
+    totalPages: number;
+    items: RemoteWordItem[];
 }

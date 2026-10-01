@@ -1,14 +1,12 @@
 import React, { useEffect } from "react";
+import { useAuth } from "@clerk/tanstack-react-start";
 import { create } from "zustand";
 import { createFileRoute } from "@tanstack/react-router";
-import { useAuth } from "@clerk/tanstack-react-start";
-
 import { Card, CardContent } from "@/components/ui/card";
-
 import { Button } from "@/components/ui/button";
-
 import { getStudy, reviewCard } from "@/src/lib/api";
 import { RecallRating, RemoteStudy } from "@/src/types/study.type";
+import SignDemo from "@/src/components/sign-demo";
 
 
 
@@ -21,22 +19,10 @@ type StudyState = {
 
     error: string | null;
 
-    setState: (
-        state: StudyState["state"]
-    ) => void;
-
-    setData: (
-        data: RemoteStudy | null
-    ) => void;
-
-    setRevealed: (
-        revealed: boolean
-    ) => void;
-
-    setError: (
-        error: string | null
-    ) => void;
-
+    setState: (state: StudyState["state"]) => void;
+    setData: (data: RemoteStudy | null) => void;
+    setRevealed: (revealed: boolean) => void;
+    setError: (error: string | null) => void;
     reset: () => void;
 };
 
@@ -50,30 +36,25 @@ const useStudy = create<StudyState>()(
 
         error: null,
 
-        setState: (state) =>
-            set({ state }),
+        setState: (state) => set({ state }),
 
         setData: (data) =>
             set({
                 data,
-
                 // A new card should always start hidden.
                 revealed: false,
             }),
 
-        setRevealed: (revealed) =>
-            set({ revealed }),
+        setRevealed: (revealed) => set({ revealed }),
 
-        setError: (error) =>
-            set({ error }),
+        setError: (error) => set({ error }),
 
-        reset: () =>
-            set({
-                state: "idle",
-                data: null,
-                revealed: false,
-                error: null,
-            }),
+        reset: () => set({
+            state: "idle",
+            data: null,
+            revealed: false,
+            error: null,
+        }),
     })
 );
 
@@ -109,11 +90,10 @@ const LearnFlashCardPage: React.FC = () => {
                 "Authentication token unavailable."
             );
         }
-        const auth = `Beare ${token}`;
 
         const result = await getStudy(
             deckId,
-            auth
+            token
         );
 
         setData(result);
@@ -138,8 +118,7 @@ const LearnFlashCardPage: React.FC = () => {
                     );
                 }
 
-                const auth = `Bearer ${token}`;
-                const result = await getStudy(deckId, auth);
+                const result = await getStudy(deckId, token);
 
                 if (cancelled)
                     return;
@@ -199,7 +178,6 @@ const LearnFlashCardPage: React.FC = () => {
                 );
             }
 
-            const auth = `Bearer ${token}`;
 
             //
             // Backend updates:
@@ -210,7 +188,7 @@ const LearnFlashCardPage: React.FC = () => {
             // - DueAt
             // - ReviewLog
             //
-            await reviewCard(card.id, deckId, { rating: rating, clientEventId: clientEventId }, auth);
+            await reviewCard(card.id, deckId, { rating: rating, clientEventId: clientEventId }, token);
 
             //
             // Ask server for the next card.
@@ -218,7 +196,7 @@ const LearnFlashCardPage: React.FC = () => {
             // Frontend does not decide whether the next
             // card should be New / Learning / Review.
             //
-            const nextStudy = await getStudy(deckId, auth);
+            const nextStudy = await getStudy(deckId, token);
 
             setData(nextStudy);
 
@@ -370,13 +348,11 @@ const LearnFlashCardPage: React.FC = () => {
 
                     {/* Demo/video */}
 
-                    {card.demoURL && (
+                    {card.word.demoURL && (
                         <div className="overflow-hidden rounded-md border">
-                            <iframe
-                                src={card.demoURL}
-                                title={card.value}
+                            <SignDemo
+                                src={card.word.demoURL}
                                 className="aspect-video w-full"
-                                allowFullScreen
                             />
                         </div>
                     )}
@@ -409,12 +385,12 @@ const LearnFlashCardPage: React.FC = () => {
                                 </p>
 
                                 <h2 className="text-3xl font-semibold">
-                                    {card.value}
+                                    {card.word.value}
                                 </h2>
 
-                                {card.meaning && (
+                                {card.word.meaning && (
                                     <p className="max-w-xl text-base leading-7 text-muted-foreground">
-                                        {card.meaning}
+                                        {card.word.meaning}
                                     </p>
                                 )}
 
@@ -422,7 +398,7 @@ const LearnFlashCardPage: React.FC = () => {
 
                             {/* Instruction */}
 
-                            {card.instruction && (
+                            {card.word.instruction && (
                                 <div className="mt-6 rounded-lg border bg-muted/30 p-4">
 
                                     <p className="mb-1 text-sm font-medium">
@@ -430,7 +406,7 @@ const LearnFlashCardPage: React.FC = () => {
                                     </p>
 
                                     <p className="text-sm leading-6 text-muted-foreground">
-                                        {card.instruction}
+                                        {card.word.instruction}
                                     </p>
 
                                 </div>
@@ -459,11 +435,7 @@ const LearnFlashCardPage: React.FC = () => {
                                         variant="outline"
                                         disabled={isReviewing}
                                         className="h-auto flex-col gap-1 py-3"
-                                        onClick={() =>
-                                            handleReview(
-                                                RecallRating.again
-                                            )
-                                        }
+                                        onClick={() => handleReview("Again")}
                                     >
                                         <span className="font-semibold">
                                             Again
@@ -478,11 +450,7 @@ const LearnFlashCardPage: React.FC = () => {
                                         variant="outline"
                                         disabled={isReviewing}
                                         className="h-auto flex-col gap-1 py-3"
-                                        onClick={() =>
-                                            handleReview(
-                                                RecallRating.hard
-                                            )
-                                        }
+                                        onClick={() => handleReview("Hard")}
                                     >
                                         <span className="font-semibold">
                                             Hard
@@ -497,11 +465,7 @@ const LearnFlashCardPage: React.FC = () => {
                                         variant="outline"
                                         disabled={isReviewing}
                                         className="h-auto flex-col gap-1 py-3"
-                                        onClick={() =>
-                                            handleReview(
-                                                RecallRating.good
-                                            )
-                                        }
+                                        onClick={() => handleReview("Good")}
                                     >
                                         <span className="font-semibold">
                                             Good
@@ -516,11 +480,7 @@ const LearnFlashCardPage: React.FC = () => {
                                         variant="outline"
                                         disabled={isReviewing}
                                         className="h-auto flex-col gap-1 py-3"
-                                        onClick={() =>
-                                            handleReview(
-                                                RecallRating.easy
-                                            )
-                                        }
+                                        onClick={() => handleReview("Easy")}
                                     >
                                         <span className="font-semibold">
                                             Easy
