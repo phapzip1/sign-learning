@@ -1,84 +1,138 @@
 import React from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { BookOpen, RotateCcw, Search, SearchX } from "lucide-react";
+import { cn } from "cn";
 import { Button } from "@/components/ui/button";
-import {
-    Combobox,
-    ComboboxContent,
-    ComboboxEmpty,
-    ComboboxInput,
-    ComboboxItem,
-    ComboboxList,
-} from "@/components/ui/combobox";
-import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
-import { FieldGroup, Field } from "@/components/ui/field";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import WordCard from "@/src/components/word-card";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-    Sidebar,
-    SidebarContent,
-    SidebarGroup,
-    SidebarGroupContent,
-    SidebarGroupLabel,
-    SidebarHeader,
-    SidebarProvider
-} from "@/components/ui/sidebar";
+    InputGroup,
+    InputGroupAddon,
+    InputGroupInput,
+} from "@/components/ui/input-group";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import WordCard from "@/src/components/word-card";
 import SignSearch from "@/src/components/sign-seach";
-import { WordItem, WordLevel, WORDSORTs } from "@/src/types/word.type";
+import PageHeader from "@/src/components/page-header";
+import EmptyState from "@/src/components/empty-state";
+import { levelStyles } from "@/src/components/level-badge";
+import { WordItem, WordLevel, WORD_LEVELS, WORDSORTs } from "@/src/types/word.type";
 import { Topic, TOPICS } from "@/src/types/topic.type";
 import WordPagination from "@/src/components/word-pagination";
 import { getWordList } from "@/src/lib/api";
 
+const PAGE_SIZE = 8;
+
+const sortItems = WORDSORTs.map((sort) => ({ value: sort.value, label: sort.label }));
+
+const FilterSection: React.FC<{
+    title: string;
+    children: React.ReactNode;
+}> = ({ title, children }) => {
+    return (
+        <div className="flex flex-col gap-3">
+            <h3 className="text-sm font-bold text-muted-foreground">
+                {title}
+            </h3>
+            {children}
+        </div>
+    );
+}
+
 const DictionaryPage: React.FC = () => {
     const [category, setCategory] = React.useState<Topic>(TOPICS[0]);
-    const [sort, setSort] = React.useState(WORDSORTs[0].value);
+    const [sort, setSort] = React.useState<number>(WORDSORTs[0].value);
     const [keyword, setKeyword] = React.useState<string>("");
+    const [debouncedKeyword, setDebouncedKeyword] = React.useState<string>("");
     const [items, setItems] = React.useState<WordItem[]>([]);
-    const [levels, setLevels] = React.useState<WordLevel[]>(["Beginner", "Intermediate", "Advance"]);
+    const [levels, setLevels] = React.useState<WordLevel[]>([...WORD_LEVELS]);
+    const [loading, setLoading] = React.useState(true);
+    const [failed, setFailed] = React.useState(false);
     const [pagitaion, setPagination] = React.useState({
-        page: 0,
+        page: 1,
         totalPages: 0,
     });
 
+    // Only the latest request is allowed to update the list.
+    const requestId = React.useRef(0);
+
+    const fetchWords = React.useCallback(async (pageIndex: number, search: string) => {
+        const id = ++requestId.current;
+        setLoading(true);
+        setFailed(false);
+
+        try {
+            const { page, items, totalPages } = await getWordList({
+                page: pageIndex,
+                pageSize: PAGE_SIZE,
+                topic: category.id !== 999 ? category.id : undefined,
+                sortId: sort,
+                levels: levels,
+                search: search,
+            });
+
+            if (id !== requestId.current)
+                return;
+
+            setPagination(() => ({ page, totalPages }));
+            setItems(items);
+        } catch (error) {
+            if (id !== requestId.current)
+                return;
+
+            console.error(error);
+            setItems([]);
+            setFailed(true);
+        } finally {
+            if (id === requestId.current)
+                setLoading(false);
+        }
+    }, [category, sort, levels]);
+
+    // Debounce typing so we don't fire a request on every keystroke.
+    React.useEffect(() => {
+        const handler = setTimeout(() => setDebouncedKeyword(keyword), 350);
+        return () => clearTimeout(handler);
+    }, [keyword]);
+
+    // Reload from the first page whenever filters or the search keyword change.
+    React.useEffect(() => {
+        fetchWords(1, debouncedKeyword);
+    }, [fetchWords, debouncedKeyword]);
+
+    const search = () => {
+        if (keyword === debouncedKeyword) {
+            fetchWords(1, keyword);
+        } else {
+            // The effect above refetches once the keyword settles.
+            setDebouncedKeyword(keyword);
+        }
+    }
+
     const reset = () => {
-        setLevels(() => ["Beginner", "Intermediate", "Advance"]);
+        setLevels(() => [...WORD_LEVELS]);
         setCategory(() => TOPICS[0]);
         setSort(() => WORDSORTs[0].value);
     }
 
-    const search = async () => {
-        const { page, items, totalPages } = await getWordList({
-            page: pagitaion.page,
-            pageSize: 8,
-            topic: category.id !== 999 ? category.id : undefined,
-            sortId: sort,
-            levels: levels,
-            search: keyword,
-        });
-
-        setPagination(() => ({ page, totalPages }));
-        setItems(items);
-
+    const toggleLevel = (level: WordLevel) => {
+        setLevels((prev) => prev.includes(level)
+            ? prev.filter((x) => x !== level)
+            : [...prev, level]
+        );
     }
 
-    const onPageChanges = async (pageIndex: number) => {
-        const { page, items, totalPages } = await getWordList({
-            page: pageIndex,
-            pageSize: 8,
-            topic: category.id !== 999 ? category.id : undefined,
-            sortId: sort,
-            levels: levels,
-            search: keyword,
-        });
-
-        setPagination(() => ({ page, totalPages }));
-        setItems(items);
+    const onPageChanges = (pageIndex: number) => {
+        fetchWords(pageIndex, debouncedKeyword);
     }
 
-    const onSignSearch = async (keywords: Record<string, number>) => {
+    const onSignSearch = (keywords: Record<string, number>) => {
         let val = null;
         let score = 0.0;
         for (const kw in keywords) {
@@ -87,235 +141,212 @@ const DictionaryPage: React.FC = () => {
                 score = keywords[kw];
             }
         }
-        
+
         if (!val || score < 4.5) {
             console.log("invalid sign");
-            return;
+            return false;
         }
         console.log(keywords);
-        
+
         setKeyword(val);
+        return true;
     }
 
+    const isFiltered = category.id !== TOPICS[0].id
+        || sort !== WORDSORTs[0].value
+        || levels.length !== WORD_LEVELS.length;
 
     return (
-        <div className="w-400 flex flex-row gap-4 px-5 mt-4">
-            <Card className="p-0 rounded h-[80vh]">
-                <CardContent>
-                    <SidebarProvider>
-                        <Sidebar
-                            variant="inset"
-                            collapsible="none"
-                            className="bg-transparent px-2"
-                        >
-                            <SidebarHeader className="flex flex-row justify-between items-center">
-                                <h3 className="text-xl font-semibold">Filters</h3>
-                                <Button
-                                    variant="ghost"
-                                    className="rounded cursor-pointer"
-                                    onClick={reset}
-                                >
-                                    Reset all
-                                </Button>
-                            </SidebarHeader>
-                            <SidebarContent>
-                                <SidebarGroup>
-                                    <SidebarGroupLabel>
-                                        Category
-                                    </SidebarGroupLabel>
-                                    <SidebarGroupContent>
-                                        <Combobox
-                                            defaultValue={TOPICS[0]}
-                                            items={TOPICS}
-                                            itemToStringValue={(item: Topic) => item.value}
-                                            value={category}
-                                            onValueChange={(val) => {
-                                                setPagination((prev) => ({ ...prev, page: 1 }));
-                                                setCategory(val!)
-                                            }}
+        <div className="flex w-full flex-col gap-6">
+            <PageHeader
+                icon={BookOpen}
+                title="Dictionary"
+                description="Explore signs by word, topic, or difficulty, or search by signing to your camera."
+            />
 
-                                        >
-                                            <ComboboxInput placeholder="All category" className="mb-2" readOnly />
-                                            <ComboboxContent >
-                                                <ComboboxEmpty>No items found.</ComboboxEmpty>
-                                                <ComboboxList>
-                                                    {(item: Topic) => (
-                                                        <ComboboxItem key={item.id} value={item}>
-                                                            {item.value}
-                                                        </ComboboxItem>
-                                                    )}
-                                                </ComboboxList>
-                                            </ComboboxContent>
-                                        </Combobox>
-                                    </SidebarGroupContent>
-                                </SidebarGroup>
-                                <Separator />
-                                <SidebarGroup>
-                                    <SidebarGroupLabel>
-                                        Difficulty Level
-                                    </SidebarGroupLabel>
-                                    <SidebarGroupContent>
-                                        <FieldGroup className="max-w-sm gap-4">
-                                            <Field
-                                                orientation="horizontal"
+            <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
+                {/* Filters */}
+                <Card className="h-fit lg:sticky lg:top-24" size="sm">
+                    <CardContent className="flex flex-col gap-6">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-lg font-extrabold">Filters</h2>
+                            <Button
+                                variant="ghost"
+                                size="xs"
+                                onClick={reset}
+                                disabled={!isFiltered}
+                            >
+                                <RotateCcw />
+                                Reset
+                            </Button>
+                        </div>
+
+                        <FilterSection title="Topic">
+                            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 [scrollbar-width:none] lg:flex-wrap lg:overflow-visible">
+                                {
+                                    TOPICS.map((topic) => {
+                                        const active = topic.id === category.id;
+                                        return (
+                                            <button
+                                                key={topic.id}
+                                                type="button"
+                                                aria-pressed={active}
+                                                onClick={() => setCategory(topic)}
+                                                className={cn(
+                                                    "shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold transition-colors",
+                                                    active
+                                                        ? "bg-primary text-primary-foreground shadow-sm shadow-primary/25"
+                                                        : "bg-muted text-muted-foreground hover:bg-secondary hover:text-secondary-foreground"
+                                                )}
                                             >
-                                                <Checkbox
-                                                    id="beginner-checkbox"
-                                                    name="beginner-checkbox"
-                                                    checked={levels.indexOf("Beginner") !== -1}
-                                                    onCheckedChange={(checked) => {
-                                                        let newLevels;
-                                                        if (checked) {
-                                                            newLevels = [...levels, "Beginner"] satisfies WordLevel[];
-                                                        } else {
-                                                            newLevels = levels.filter((level) => level !== "Beginner")
-                                                        }
-                                                        setPagination((prev) => ({ ...prev, page: 1 }));
-                                                        setLevels(() => newLevels);
-                                                    }}
-                                                />
-                                                <Label htmlFor="beginner-checkbox">Beginner</Label>
-                                            </Field>
-                                            <Field orientation="horizontal">
-                                                <Checkbox
-                                                    id="intermediate-checkbox"
-                                                    name="intermediate-checkbox"
-                                                    checked={levels.indexOf("Intermediate") !== -1}
-                                                    onCheckedChange={(checked) => {
-                                                        let newLevels;
-                                                        if (checked) {
-                                                            newLevels = [...levels, "Intermediate"] satisfies WordLevel[];
-                                                        } else {
-                                                            newLevels = levels.filter((level) => level !== "Intermediate")
-                                                        }
-                                                        setPagination((prev) => ({ ...prev, page: 1 }));
+                                                {topic.value}
+                                            </button>
+                                        );
+                                    })
+                                }
+                            </div>
+                        </FilterSection>
 
-                                                        setLevels(() => newLevels);
+                        <FilterSection title="Difficulty">
+                            <div className="flex flex-wrap gap-2">
+                                {
+                                    WORD_LEVELS.map((level) => {
+                                        const active = levels.includes(level);
+                                        return (
+                                            <button
+                                                key={level}
+                                                type="button"
+                                                aria-pressed={active}
+                                                onClick={() => toggleLevel(level)}
+                                                className={cn(
+                                                    "rounded-full px-3 py-1.5 text-sm font-semibold ring-1 transition-all",
+                                                    active
+                                                        ? cn(levelStyles[level], "ring-current/20")
+                                                        : "bg-transparent text-muted-foreground ring-border line-through decoration-2 hover:bg-muted"
+                                                )}
+                                            >
+                                                {level}
+                                            </button>
+                                        );
+                                    })
+                                }
+                            </div>
+                        </FilterSection>
 
-                                                    }}
-                                                />
-                                                <Label htmlFor="intermediate-checkbox">Intermediate</Label>
-                                            </Field>
-                                            <Field orientation="horizontal">
-                                                <Checkbox
-                                                    id="advance-checkbox"
-                                                    name="advance-checkbox"
-                                                    checked={levels.indexOf("Advance") !== -1}
-                                                    onCheckedChange={(checked) => {
-                                                        let newLevels;
-                                                        if (checked) {
-                                                            newLevels = [...levels, "Advance"] satisfies WordLevel[];
-                                                        } else {
-                                                            newLevels = levels.filter((level) => level !== "Advance")
-                                                        }
-                                                        setPagination((prev) => ({ ...prev, page: 1 }));
-                                                        setLevels(() => newLevels);
-                                                    }}
-                                                />
-                                                <Label htmlFor="advance-checkbox">Advance</Label>
-                                            </Field>
-                                        </FieldGroup>
-                                    </SidebarGroupContent>
-                                </SidebarGroup>
-                                <Separator />
-                                <SidebarGroup>
-                                    <SidebarGroupLabel>
-                                        Sort
-                                    </SidebarGroupLabel>
-                                    <SidebarGroupContent>
-                                        <RadioGroup
-                                            value={sort}
-                                            onValueChange={(val) => setSort(val)}
-                                            className="w-fit"
-                                        >
-                                            {
-                                                WORDSORTs.map(val => {
-                                                    return (
-                                                        <div key={val.value} className="flex items-center gap-3">
-                                                            <RadioGroupItem value={val.value} id={val.value.toString()} />
-                                                            <Label htmlFor={val.value.toString()}>{val.label}</Label>
-                                                        </div>
-                                                    );
-                                                })
-                                            }
-                                            {/* <div className="flex items-center gap-3">
-                                                <RadioGroupItem value="most-relevant" id="r1" />
-                                                <Label htmlFor="r1">Most relevant</Label>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <RadioGroupItem value="ascending" id="r2" />
-                                                <Label htmlFor="r2">A - Z</Label>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <RadioGroupItem value="descending" id="r3" />
-                                                <Label htmlFor="r3">Z - A </Label>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <RadioGroupItem value="newest" id="r4" />
-                                                <Label htmlFor="r4">Newest</Label>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <RadioGroupItem value="oldest" id="r5" />
-                                                <Label htmlFor="r5">Oldest</Label>
-                                            </div> */}
-                                        </RadioGroup>
-                                    </SidebarGroupContent>
-                                </SidebarGroup>
-                            </SidebarContent>
-                        </Sidebar>
-                    </SidebarProvider>
-                </CardContent>
-            </Card>
-            <Card className="rounded p-0 flex-7">
-                <CardContent className="flex flex-col gap-4 py-4 min-h-full">
-                    <div className="flex flex-row gap-4 items-center">
-                        <Input
-                            placeholder="Search for a word (e.g. hello, family, thank you, ...)"
-                            className="w-full"
-                            value={keyword}
-                            onChange={(e) => {
-                                setKeyword(e.target.value);
-                                setPagination(prev => ({ ...prev, page: 1 }));
-                            }}
-                        />
-                        <Button className="rounded-md" onClick={search}>
-                            Search
-                        </Button>
-                        <span>or</span>
-                        {/* <Button variant="secondary" className="rounded-md">
-                            Search with signs
-                        </Button> */}
-                        <SignSearch onSearchComplete={onSignSearch} />
-                    </div>
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-                        {
-                            items.map((word) => {
+                        <FilterSection title="Sort by">
+                            <Select
+                                items={sortItems}
+                                value={sort}
+                                onValueChange={(val) => {
+                                    if (val != null)
+                                        setSort(val as number);
+                                }}
+                            >
+                                <SelectTrigger className="w-full">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {
+                                        sortItems.map((item) => (
+                                            <SelectItem key={item.value} value={item.value}>
+                                                {item.label}
+                                            </SelectItem>
+                                        ))
+                                    }
+                                </SelectContent>
+                            </Select>
+                        </FilterSection>
+                    </CardContent>
+                </Card>
 
-                                return (
-                                    <WordCard
-                                        key={word.id}
-                                        id={word.id}
-                                        title={word.title}
-                                        description={word.description}
-                                        thumbnail={word.cover}
-                                        category={word.topic.id}
-                                        level={word.level}
-                                        className="min-h-90"
-                                    />
-                                );
-                            })
-                        }
-                    </div>
+                {/* Results */}
+                <div className="flex min-w-0 flex-col gap-5">
+                    <form
+                        className="flex flex-col gap-3 sm:flex-row sm:items-center"
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            search();
+                        }}
+                    >
+                        <InputGroup className="h-12 flex-1 bg-card">
+                            <InputGroupAddon>
+                                <Search className="size-5" />
+                            </InputGroupAddon>
+                            <InputGroupInput
+                                placeholder="Search for a word (e.g. hello, family, thank you…)"
+                                className="h-12 text-base"
+                                value={keyword}
+                                onChange={(e) => setKeyword(e.target.value)}
+                            />
+                        </InputGroup>
+                        <div className="flex items-center gap-2">
+                            <Button type="submit" className="h-12 flex-1 sm:flex-none">
+                                Search
+                            </Button>
+                            <span className="text-sm text-muted-foreground">or</span>
+                            <SignSearch onSearchComplete={onSignSearch} />
+                        </div>
+                    </form>
+
                     {
-                        items.length !== 0 &&
+                        loading ? (
+                            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                                {
+                                    Array.from({ length: PAGE_SIZE }, (_, i) => (
+                                        <Card key={i} className="gap-3 p-3">
+                                            <Skeleton className="aspect-video w-full" />
+                                            <Skeleton className="h-5 w-2/3" />
+                                            <Skeleton className="h-4 w-1/2" />
+                                            <Skeleton className="h-4 w-full" />
+                                        </Card>
+                                    ))
+                                }
+                            </div>
+                        ) : items.length === 0 ? (
+                            <EmptyState
+                                icon={SearchX}
+                                title={failed ? "Couldn't load signs" : "No signs found"}
+                                description={
+                                    failed
+                                        ? "Something went wrong while loading the dictionary. Please try again."
+                                        : "Try another word, or loosen your filters to see more signs."
+                                }
+                                action={
+                                    failed
+                                        ? <Button onClick={search}>Try again</Button>
+                                        : isFiltered && <Button variant="outline" onClick={reset}>Clear filters</Button>
+                                }
+                            />
+                        ) : (
+                            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                                {
+                                    items.map((word) => {
+                                        return (
+                                            <WordCard
+                                                key={word.id}
+                                                id={word.id}
+                                                title={word.title}
+                                                description={word.description}
+                                                thumbnail={word.cover}
+                                                category={word.topic.id}
+                                                level={word.level}
+                                            />
+                                        );
+                                    })
+                                }
+                            </div>
+                        )
+                    }
+                    {
+                        items.length !== 0 && pagitaion.totalPages > 1 &&
                         <WordPagination
                             page={pagitaion.page}
                             totalPages={pagitaion.totalPages}
                             onPageChange={onPageChanges}
                         />
                     }
-                </CardContent>
-            </Card>
+                </div>
+            </div>
         </div>
     );
 }

@@ -1,9 +1,9 @@
 // src/routes/__root.tsx
 /// <reference types="vite/client" />
 // other imports...
-import { useEffect } from "react";
 import {
     HeadContent,
+    Link,
     Outlet,
     Scripts,
     createRootRoute,
@@ -12,6 +12,7 @@ import appCss from "@/src/styles/app.css?url";
 import { ClerkProvider } from "@clerk/tanstack-react-start";
 import NavList from "@/src/components/nav-list";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Hand } from "lucide-react";
 
 const RootDocument = ({ children }: Readonly<{
     children?: React.ReactNode
@@ -19,7 +20,7 @@ const RootDocument = ({ children }: Readonly<{
 ) => {
 
     return (
-        <html>
+        <html lang="en">
             <head>
                 <HeadContent />
             </head>
@@ -41,10 +42,18 @@ const RootLayout: React.FC = () => {
 
     return (
         <RootDocument>
-            <nav className="flex flex-row items-center justify-end mx-4 my-2">
-                <NavList />
-            </nav>
-            <main className="mx-auto flex max-w-[1600px]">
+            <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md">
+                <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
+                    <Link to="/" className="flex items-center gap-2.5 font-extrabold text-lg">
+                        <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm shadow-primary/30">
+                            <Hand className="size-5" />
+                        </span>
+                        Sign Learning
+                    </Link>
+                    <NavList />
+                </div>
+            </header>
+            <main className="mx-auto flex w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
                 <Outlet />
             </main>
             {/* {isLoading && <LoadingOverlay />} */}
@@ -63,7 +72,7 @@ export const Route = createRootRoute({
                 content: "width=device-width, initial-scale=1",
             },
             {
-                title: "TanStack Start Starter",
+                title: "Sign Learning",
             },
         ],
         links: [

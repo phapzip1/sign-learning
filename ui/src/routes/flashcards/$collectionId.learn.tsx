@@ -1,12 +1,58 @@
 import React, { useEffect } from "react";
 import { useAuth } from "@clerk/tanstack-react-start";
 import { create } from "zustand";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import {
+    ArrowLeft,
+    Clock,
+    CloudOff,
+    Eye,
+    Layers3,
+    Lightbulb,
+    Loader2,
+    RotateCcw,
+} from "lucide-react";
+import { cn } from "cn";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getStudy, reviewCard } from "@/src/lib/api";
 import { RecallRating, RemoteStudy } from "@/src/types/study.type";
 import SignDemo from "@/src/components/sign-demo";
+import EmptyState from "@/src/components/empty-state";
+
+const RATINGS: {
+    rating: RecallRating;
+    key: string;
+    emoji: string;
+    hint: string;
+    className: string;
+}[] = [
+        { rating: "Again", key: "1", emoji: "😵", hint: "Forgot", className: "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:text-rose-800" },
+        { rating: "Hard", key: "2", emoji: "😅", hint: "Difficult", className: "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-800" },
+        { rating: "Good", key: "3", emoji: "🙂", hint: "Remembered", className: "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800" },
+        { rating: "Easy", key: "4", emoji: "🤩", hint: "Effortless", className: "border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:text-violet-800" },
+    ];
+
+const Kbd: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className }) => (
+    <kbd className={cn("inline-flex h-5 min-w-5 items-center justify-center rounded-md border border-b-2 bg-card px-1 font-sans text-[0.7rem] font-bold text-muted-foreground", className)}>
+        {children}
+    </kbd>
+);
+
+const BackLink: React.FC = () => (
+    <Button
+        variant="ghost"
+        size="sm"
+        className="-ml-2 text-muted-foreground"
+        render={
+            <Link to="/flashcards">
+                <ArrowLeft />
+                Collections
+            </Link>
+        }
+    />
+);
 
 
 
@@ -215,14 +261,60 @@ const LearnFlashCardPage: React.FC = () => {
         }
     };
 
+    //
+    // Keyboard shortcuts: Space/Enter reveals, 1-4 rates.
+    //
+    const shortcutRef = React.useRef<(e: KeyboardEvent) => void>(() => { });
+
+    shortcutRef.current = (e: KeyboardEvent) => {
+        const target = e.target as HTMLElement | null;
+
+        if (target?.closest("input, textarea, select, [contenteditable=true]"))
+            return;
+
+        if (state !== "loaded" || !study?.currentCard)
+            return;
+
+        if (!revealed) {
+            if (e.key === " " || e.key === "Enter") {
+                e.preventDefault();
+                setRevealed(true);
+            }
+            return;
+        }
+
+        const rating = RATINGS.find((r) => r.key === e.key);
+
+        if (rating) {
+            e.preventDefault();
+            handleReview(rating.rating);
+        }
+    };
+
+    useEffect(() => {
+        const listener = (e: KeyboardEvent) => shortcutRef.current(e);
+
+        window.addEventListener("keydown", listener);
+
+        return () => window.removeEventListener("keydown", listener);
+    }, []);
+
     if (
         state === "idle" ||
         state === "loading"
     ) {
         return (
-            <div className="flex min-h-125 items-center justify-center">
-                <p className="text-muted-foreground">
-                    Loading study session...
+            <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+                <Skeleton className="h-8 w-40" />
+                <div className="grid grid-cols-3 gap-3">
+                    <Skeleton className="h-16" />
+                    <Skeleton className="h-16" />
+                    <Skeleton className="h-16" />
+                </div>
+                <Skeleton className="aspect-video w-full rounded-3xl" />
+                <p className="flex items-center justify-center gap-2 text-muted-foreground">
+                    <Loader2 className="size-4 animate-spin" />
+                    Getting your cards ready…
                 </p>
             </div>
         );
@@ -230,37 +322,37 @@ const LearnFlashCardPage: React.FC = () => {
 
     if (state === "error") {
         return (
-            <div className="flex min-h-125 flex-col items-center justify-center gap-3">
-                <h2 className="text-xl font-semibold">
-                    Something went wrong
-                </h2>
+            <div className="mx-auto w-full max-w-3xl">
+                <EmptyState
+                    icon={CloudOff}
+                    title="Something went wrong"
+                    description={error}
+                    action={
+                        <Button
+                            onClick={async () => {
+                                setState("loading");
+                                setError(null);
 
-                <p className="text-muted-foreground">
-                    {error}
-                </p>
+                                try {
+                                    await loadStudy();
+                                    setState("loaded");
+                                }
+                                catch (error) {
+                                    setError(
+                                        error instanceof Error
+                                            ? error.message
+                                            : "Unable to load study session."
+                                    );
 
-                <Button
-                    onClick={async () => {
-                        setState("loading");
-                        setError(null);
-
-                        try {
-                            await loadStudy();
-                            setState("loaded");
-                        }
-                        catch (error) {
-                            setError(
-                                error instanceof Error
-                                    ? error.message
-                                    : "Unable to load study session."
-                            );
-
-                            setState("error");
-                        }
-                    }}
-                >
-                    Try again
-                </Button>
+                                    setState("error");
+                                }
+                            }}
+                        >
+                            <RotateCcw />
+                            Try again
+                        </Button>
+                    }
+                />
             </div>
         );
     }
@@ -274,26 +366,41 @@ const LearnFlashCardPage: React.FC = () => {
     //
     if (!study.currentCard) {
         return (
-            <div className="mx-auto mt-12 w-full max-w-3xl">
-                <Card>
-                    <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
-                        <h1 className="text-2xl font-semibold">
-                            You're caught up
+            <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+                <BackLink />
+                <Card className="relative overflow-hidden">
+                    <div className="pointer-events-none absolute -top-16 -right-16 size-56 rounded-full bg-highlight/40 blur-3xl" />
+                    <div className="pointer-events-none absolute -bottom-16 -left-16 size-56 rounded-full bg-primary/20 blur-3xl" />
+                    <CardContent className="relative flex flex-col items-center gap-3 py-12 text-center">
+                        <span className="text-6xl">🎉</span>
+                        <h1 className="text-3xl font-black">
+                            You're all caught up!
                         </h1>
 
-                        <p className="text-muted-foreground">
-                            There are no cards available to study
-                            right now.
+                        <p className="max-w-md text-muted-foreground">
+                            Great work. There are no cards to study in this
+                            collection right now, so come back later for more practice.
                         </p>
 
                         {study.nextDueAt && (
-                            <p className="text-sm text-muted-foreground">
+                            <p className="flex items-center gap-2 rounded-full bg-secondary px-4 py-1.5 text-sm font-semibold text-secondary-foreground">
+                                <Clock className="size-4" />
                                 Next card due{" "}
                                 {new Date(
                                     study.nextDueAt
                                 ).toLocaleString()}
                             </p>
                         )}
+
+                        <Button
+                            className="mt-4"
+                            render={
+                                <Link to="/flashcards">
+                                    <Layers3 />
+                                    Back to collections
+                                </Link>
+                            }
+                        />
                     </CardContent>
                 </Card>
             </div>
@@ -306,50 +413,35 @@ const LearnFlashCardPage: React.FC = () => {
         state === "reviewing";
 
     return (
-        <div className="mx-auto mt-8 w-full max-w-3xl px-4">
-            <Card className="rounded-lg">
-                <CardContent className="flex flex-col gap-6 p-6">
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
+            <div className="flex items-center justify-between gap-4">
+                <BackLink />
 
-                    {/* Counts */}
+                {/* Counts */}
+                <div className="flex gap-2">
+                    <span className="rounded-full bg-sky-100 px-3 py-1 text-sm font-bold text-sky-700">
+                        {study.new} new
+                    </span>
+                    <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-bold text-emerald-700">
+                        {study.learning} learning
+                    </span>
+                    <span className="rounded-full bg-rose-100 px-3 py-1 text-sm font-bold text-rose-700">
+                        {study.due} due
+                    </span>
+                </div>
+            </div>
 
-                    <div className="grid grid-cols-3 gap-3">
+            <Card className="rounded-3xl shadow-lg shadow-primary/10">
+                <CardContent className="flex flex-col gap-6">
 
-                        <div className="rounded-md border px-4 py-3 text-center">
-                            <p className="text-xs text-muted-foreground">
-                                New
-                            </p>
-
-                            <p className="mt-1 text-lg font-semibold">
-                                {study.new}
-                            </p>
-                        </div>
-
-                        <div className="rounded-md border px-4 py-3 text-center">
-                            <p className="text-xs text-muted-foreground">
-                                Learning
-                            </p>
-
-                            <p className="mt-1 text-lg font-semibold">
-                                {study.learning}
-                            </p>
-                        </div>
-
-                        <div className="rounded-md border px-4 py-3 text-center">
-                            <p className="text-xs text-muted-foreground">
-                                Due
-                            </p>
-
-                            <p className="mt-1 text-lg font-semibold">
-                                {study.due}
-                            </p>
-                        </div>
-
-                    </div>
+                    <p className="text-center text-sm font-bold text-primary">
+                        What does this sign mean?
+                    </p>
 
                     {/* Demo/video */}
 
                     {card.word.demoURL && (
-                        <div className="overflow-hidden rounded-md border">
+                        <div className="overflow-hidden rounded-2xl bg-black">
                             <SignDemo
                                 src={card.word.demoURL}
                                 className="aspect-video w-full"
@@ -360,31 +452,38 @@ const LearnFlashCardPage: React.FC = () => {
                     {/* Hidden state */}
 
                     {!revealed && (
-                        <Button
-                            size="lg"
-                            className="w-full"
-                            onClick={() =>
-                                setRevealed(true)
-                            }
-                        >
-                            Reveal answer
-                        </Button>
+                        <div className="flex flex-col items-center gap-2">
+                            <Button
+                                size="lg"
+                                variant="highlight"
+                                className="w-full"
+                                onClick={() =>
+                                    setRevealed(true)
+                                }
+                            >
+                                <Eye />
+                                Reveal answer
+                            </Button>
+                            <p className="hidden text-xs text-muted-foreground sm:block">
+                                Tip: press <Kbd>Space</Kbd> to reveal
+                            </p>
+                        </div>
                     )}
 
                     {/* Revealed state */}
 
                     {revealed && (
-                        <div className="border-t border-dashed pt-6">
+                        <div className="animate-in fade-in slide-in-from-bottom-2 border-t-2 border-dashed pt-6 duration-300">
 
                             {/* Answer */}
 
                             <div className="flex flex-col items-center gap-2 text-center">
 
-                                <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                                <p className="text-xs font-bold text-muted-foreground">
                                     Answer
                                 </p>
 
-                                <h2 className="text-3xl font-semibold">
+                                <h2 className="text-4xl font-black text-primary">
                                     {card.word.value}
                                 </h2>
 
@@ -399,16 +498,17 @@ const LearnFlashCardPage: React.FC = () => {
                             {/* Instruction */}
 
                             {card.word.instruction && (
-                                <div className="mt-6 rounded-lg border bg-muted/30 p-4">
+                                <div className="mt-6 flex gap-3 rounded-2xl bg-highlight/15 p-4 ring-1 ring-highlight/40">
+                                    <Lightbulb className="mt-0.5 size-5 shrink-0 text-highlight-foreground" />
+                                    <div>
+                                        <p className="mb-1 text-sm font-bold">
+                                            Signing tip
+                                        </p>
 
-                                    <p className="mb-1 text-sm font-medium">
-                                        Signing tip
-                                    </p>
-
-                                    <p className="text-sm leading-6 text-muted-foreground">
-                                        {card.word.instruction}
-                                    </p>
-
+                                        <p className="text-sm leading-6 text-muted-foreground">
+                                            {card.word.instruction}
+                                        </p>
+                                    </div>
                                 </div>
                             )}
 
@@ -418,84 +518,48 @@ const LearnFlashCardPage: React.FC = () => {
 
                                 <div className="mb-4 text-center">
 
-                                    <p className="font-medium">
+                                    <p className="font-bold">
                                         How well did you remember this?
                                     </p>
 
                                     <p className="mt-1 text-sm text-muted-foreground">
-                                        Choose the response that best
-                                        matches your recall.
+                                        Be honest, because it helps us show you the sign at the right time.
                                     </p>
 
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                                    {
+                                        RATINGS.map((r) => (
+                                            <Button
+                                                key={r.rating}
+                                                variant="outline"
+                                                disabled={isReviewing}
+                                                className={cn("relative h-auto flex-col gap-0.5 rounded-2xl border-2 py-3", r.className)}
+                                                onClick={() => handleReview(r.rating)}
+                                            >
+                                                <span className="text-xl leading-none">
+                                                    {r.emoji}
+                                                </span>
+                                                <span className="font-bold">
+                                                    {r.rating}
+                                                </span>
 
-                                    <Button
-                                        variant="outline"
-                                        disabled={isReviewing}
-                                        className="h-auto flex-col gap-1 py-3"
-                                        onClick={() => handleReview("Again")}
-                                    >
-                                        <span className="font-semibold">
-                                            Again
-                                        </span>
-
-                                        <span className="text-xs text-muted-foreground">
-                                            Forgot
-                                        </span>
-                                    </Button>
-
-                                    <Button
-                                        variant="outline"
-                                        disabled={isReviewing}
-                                        className="h-auto flex-col gap-1 py-3"
-                                        onClick={() => handleReview("Hard")}
-                                    >
-                                        <span className="font-semibold">
-                                            Hard
-                                        </span>
-
-                                        <span className="text-xs text-muted-foreground">
-                                            Difficult
-                                        </span>
-                                    </Button>
-
-                                    <Button
-                                        variant="outline"
-                                        disabled={isReviewing}
-                                        className="h-auto flex-col gap-1 py-3"
-                                        onClick={() => handleReview("Good")}
-                                    >
-                                        <span className="font-semibold">
-                                            Good
-                                        </span>
-
-                                        <span className="text-xs text-muted-foreground">
-                                            Remembered
-                                        </span>
-                                    </Button>
-
-                                    <Button
-                                        variant="outline"
-                                        disabled={isReviewing}
-                                        className="h-auto flex-col gap-1 py-3"
-                                        onClick={() => handleReview("Easy")}
-                                    >
-                                        <span className="font-semibold">
-                                            Easy
-                                        </span>
-
-                                        <span className="text-xs text-muted-foreground">
-                                            Effortless
-                                        </span>
-                                    </Button>
-
+                                                <span className="text-xs font-medium opacity-80">
+                                                    {r.hint}
+                                                </span>
+                                                <Kbd className="absolute top-1.5 right-1.5 hidden sm:inline-flex">
+                                                    {r.key}
+                                                </Kbd>
+                                            </Button>
+                                        ))
+                                    }
                                 </div>
 
                                 {isReviewing && (
-                                    <p className="mt-3 text-center text-sm text-muted-foreground">
-                                        Saving review...
+                                    <p className="mt-3 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                                        <Loader2 className="size-4 animate-spin" />
+                                        Saving review…
                                     </p>
                                 )}
 

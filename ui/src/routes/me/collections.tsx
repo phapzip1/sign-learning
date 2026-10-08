@@ -1,19 +1,10 @@
 import React from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Calendar, FileText, Plus } from "lucide-react";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Calendar, FileText, Layers3, Pencil, Play, Plus, Search, Trash2 } from "lucide-react";
+import { cn } from "cn";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Button, buttonVariants } from "@/components/ui/button";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarHeader,
-  SidebarMenuButton,
-  SidebarProvider,
-} from "@/components/ui/sidebar";
-import { Separator } from "@/components/ui/separator";
 import WordTable from "@/src/components/word-table";
 import {
   Dialog,
@@ -30,6 +21,7 @@ import { deleteCollection, getCards, getCollections } from "@/src/lib/api";
 import { useAuth } from "@clerk/tanstack-react-start";
 import { RemoteWordCard } from "@/src/types/word.type";
 import DeckEditor from "@/src/components/deck-editor";
+import EmptyState from "@/src/components/empty-state";
 
 const FavoritesPage: React.FC = () => {
   const navigate = useNavigate();
@@ -72,6 +64,7 @@ const FavoritesPage: React.FC = () => {
   }, [params]);
 
   const collection = collections.find(col => col.id === params?.collection);
+  const filteredCollections = collections.filter(x => searchCollection.length === 0 || x.name.toLowerCase().includes(searchCollection.toLowerCase()));
 
 
   const delCollection = async () => {
@@ -93,141 +86,150 @@ const FavoritesPage: React.FC = () => {
 
 
   return (
-    <div className="flex flex-row gap-4 w-400 h-full">
-      <Card className="p-0 rounded min-h-200 h-200">
-        <CardContent className="flex flex-col py-2">
-          <SidebarProvider
-          >
-            <Sidebar
-              className="bg-transparent "
-              collapsible="none"
-            >
-              <SidebarHeader>
-                <h3 className="text-2xl font-medium">Your collection</h3>
-              </SidebarHeader>
-              <SidebarContent>
-                <SidebarGroup>
-                  <DeckEditor
-                    trigger={
-                      <Button
-                        className="flex flex-row items-center justify-center gap-4"
-                      >
-                        <Plus />
-                        New collection
-                      </Button>
-                    }
-                    onCompleted={() => {
-                      console.log("vao");
+    <div className="grid w-full gap-6 lg:grid-cols-[300px_1fr]">
+      {/* Collection list */}
+      <Card className="h-fit lg:sticky lg:top-24" size="sm">
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-lg font-extrabold">Your collections</h3>
+            <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-bold text-secondary-foreground">
+              {collections.length}
+            </span>
+          </div>
+          <DeckEditor
+            trigger={
+              <Button className="w-full">
+                <Plus />
+                New collection
+              </Button>
+            }
+            onCompleted={() => {
+              fetchCollection();
+            }}
+          />
+          <InputGroup>
+            <InputGroupAddon>
+              <Search className="size-4" />
+            </InputGroupAddon>
+            <InputGroupInput
+              placeholder="Search collections"
+              name="search-collection"
+              value={searchCollection}
+              onChange={e => setSearchCollection(e.target.value)}
+            />
+          </InputGroup>
+          <div className="flex max-h-[50vh] flex-col gap-1 overflow-y-auto lg:max-h-[60vh]">
+            {
+              filteredCollections.length === 0 ? (
+                <p className="px-2 py-6 text-center text-sm text-muted-foreground">
+                  {collections.length === 0 ? "No collections yet." : "No matches."}
+                </p>
+              ) : filteredCollections.map((item) => {
+                const active = params && params.collection === item.id;
 
-                      fetchCollection();
-
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={cn(
+                      "flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition-colors",
+                      active
+                        ? "bg-primary text-primary-foreground shadow-sm shadow-primary/25"
+                        : "hover:bg-muted"
+                    )}
+                    onClick={() => {
+                      navigate({
+                        from: "/me/collections",
+                        search: {
+                          collection: item.id
+                        }
+                      })
                     }}
-                  />
-                </SidebarGroup>
-                <Separator />
-                <SidebarGroup>
-                  <Input
-                    placeholder="...Search collection"
-                    className="border"
-                    name="search-collection"
-                    value={searchCollection}
-                    onChange={e => setSearchCollection(e.target.value)}
-                  />
-                </SidebarGroup>
-                <Separator />
-                <SidebarGroup
-                  className="gap-2"
-                >
-                  {
-                    collections.filter(x => searchCollection.length === 0 || x.name.includes(searchCollection)).map((collection) => {
-
-                      return (
-                        <SidebarMenuButton
-                          key={collection.id}
-                          className="font-medium"
-                          variant="outline"
-                          isActive={params && params.collection === collection.id}
-                          onClick={() => {
-                            navigate({
-                              from: "/me/collections",
-                              search: {
-                                collection: collection.id
-                              }
-                            })
-                          }}
-                        >
-                          {collection.name}
-                        </SidebarMenuButton>
-                      );
-                    })
-                  }
-                </SidebarGroup>
-              </SidebarContent>
-            </Sidebar>
-          </SidebarProvider>
+                  >
+                    <Layers3 className={cn("size-4 shrink-0", active ? "" : "text-primary")} />
+                    <span className="truncate">{item.name}</span>
+                  </button>
+                );
+              })
+            }
+          </div>
         </CardContent>
       </Card>
-      <div className="flex flex-col gap-4 flex-1">
+
+      <div className="flex min-w-0 flex-col gap-6">
         {
           !collection
             ?
-            <Card>
-              <CardContent className="flex flex-row justify-center items-center">
-                "Select a collection to continue"
-              </CardContent>
-            </Card>
+            <EmptyState
+              icon={Layers3}
+              title="Pick a collection"
+              description="Choose a collection on the left to see its words, or create a new one to get started."
+              className="h-full min-h-80"
+            />
             : <>
-              <Card className="rounded p-0 min-h-40">
-                <CardContent className="flex flex-row justify-between py-4 h-full">
-                  <div className="flex flex-col justify-between flex-1">
-                    <span>
-                      <h2 className="text-3xl font-semibold">
+              <Card>
+                <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex min-w-0 flex-col gap-3">
+                    <div>
+                      <h2 className="text-3xl font-black">
                         {collection.name}
                       </h2>
-                      <p className="mt-2">{collection.description}</p>
-                    </span>
-                    <div className="flex flex-row gap-6 text-muted-foreground items-center">
-                      <span className="flex flex-row gap-2">
-                        <FileText className="size-4.5" />
-                        <p>{cards.length} words</p>
+                      {collection.description && (
+                        <p className="mt-1 text-muted-foreground">{collection.description}</p>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-2 text-sm">
+                      <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1 font-semibold text-secondary-foreground">
+                        <FileText className="size-4" />
+                        {cards.length} {cards.length === 1 ? "word" : "words"}
                       </span>
-                      <span className="flex flex-row gap-2">
-                        <Calendar className="size-4.5" />
-                        <p>Updated {new Date().toISOString()}</p>
-                      </span>
+                      {collection.updatedAt && (
+                        <span className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 font-semibold text-muted-foreground">
+                          <Calendar className="size-4" />
+                          Updated {new Date(collection.updatedAt).toLocaleDateString()}
+                        </span>
+                      )}
                     </div>
                   </div>
-                  <div className="flex flex-row gap-4 items-start h-fit">
-
+                  <div className="flex shrink-0 flex-row gap-2">
+                    <Button
+                      variant="highlight"
+                      onClick={() => navigate({ to: `/flashcards/${collection.id}/learn` })}
+                      disabled={collection.new + collection.learning + collection.due === 0}
+                    >
+                      <Play className="fill-current" />
+                      Study
+                    </Button>
                     <DeckEditor
                       title={collection.name}
                       description={collection.description}
                       id={collection.id}
                       trigger={
-                        <Button variant="secondary">
+                        <Button variant="outline">
+                          <Pencil />
                           Edit
                         </Button>
                       }
                       onCompleted={() => {
-                        console.log("vao");
-
                         fetchCollection();
-
                       }}
                     />
                     <Dialog
                       actionsRef={deleteDialogRef}
                     >
-                      <DialogTrigger className={buttonVariants({ variant: "destructive" })}>
-                        Delete
+                      <DialogTrigger
+                        className={buttonVariants({ variant: "destructive", size: "icon" })}
+                        aria-label="Delete collection"
+                      >
+                        <Trash2 />
                       </DialogTrigger>
                       <DialogContent showCloseButton={false}>
                         <DialogHeader>
                           <DialogTitle>
-                            Are you sure?
+                            Delete "{collection.name}"?
                           </DialogTitle>
                           <DialogDescription>
-                            This action cannot be reverted!
+                            This removes the collection and its study progress. This can't be undone.
                           </DialogDescription>
                         </DialogHeader>
                         <DialogFooter className="flex flex-row justify-between">
@@ -251,58 +253,22 @@ const FavoritesPage: React.FC = () => {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="flex flex-row rounded p-0 flex-1">
-                <CardContent className="flex flex-col size-full py-4 gap-4">
-                  <div className="flex flex-row w-full gap-4">
-                    <Input
-                      className=""
+              <Card className="flex-1">
+                <CardContent className="flex size-full flex-col gap-4">
+                  <InputGroup className="sm:max-w-sm">
+                    <InputGroupAddon>
+                      <Search className="size-4" />
+                    </InputGroupAddon>
+                    <InputGroupInput
                       placeholder="Search words in this collection"
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                     />
-                    {/* {
-                      selectedRows.length !== 0 && (
-                        <Dialog>
-                          <DialogTrigger className={buttonVariants({ variant: "destructive" })}>
-                            Delete selected
-                          </DialogTrigger>
-                          <DialogContent showCloseButton={false}>
-                            <DialogHeader>
-                              <DialogTitle>
-                                Are you sure?
-                              </DialogTitle>
-                              <DialogDescription>
-                                This action cannot be reverted!
-                              </DialogDescription>
-                            </DialogHeader>
-                            <DialogFooter className="flex flex-row justify-between">
-                              <DialogClose
-                                render={
-                                  <Button variant="secondary" type="button">
-                                    Cancel
-                                  </Button>
-                                }
-                              >
-                              </DialogClose>
-                              <Button
-                                variant="destructive"
-                                onClick={() => {
-                                  
-                                }}
-                              >
-                                Delete
-                              </Button>
-                            </DialogFooter>
-                          </DialogContent>
-                        </Dialog>
-                      )
-                    } */}
-                  </div>
+                  </InputGroup>
                   <WordTable
                     className="w-full flex-1"
                     data={cards}
                     search={search}
-                  // onSelectedChange={(data) => selectRows(data.map(row => row.id))}
                   />
                 </CardContent>
               </Card>

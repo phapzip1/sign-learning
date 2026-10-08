@@ -1,4 +1,5 @@
 import React from "react";
+import { Camera, Circle, Loader2, Square, TriangleAlert } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
     Dialog,
@@ -13,8 +14,10 @@ import { searchBySign } from "@/src/lib/api";
 const options = { mimeType: "video/mp4; codecs=vp9" };
 
 const SignSearch: React.FC<{
-    onSearchComplete?: (keyword: Record<string, number>) => void;
+    // Return false when no word could be matched, so the dialog can tell the user.
+    onSearchComplete?: (keyword: Record<string, number>) => boolean | void;
 }> = ({ onSearchComplete }) => {
+    const [notFound, setNotFound] = React.useState(false);
     const [stream, setStream] = React.useState<MediaStream | null>(null);
     const videoRef = React.useRef<HTMLVideoElement>(null);
     const [mediaRecorder, setMediaRecorder] = React.useState<MediaRecorder | null>(null);
@@ -57,7 +60,7 @@ const SignSearch: React.FC<{
                 try {
                     const result = await searchBySign([data]);
 
-                    onSearchComplete?.(result);
+                    setNotFound(onSearchComplete?.(result) === false);
                 } catch (err: any) {
                     console.error(`Error calling API: ${err.message}`)
                 }
@@ -90,6 +93,7 @@ const SignSearch: React.FC<{
     const startRecord = async () => {
         if (stream && videoRef.current && !mediaRecorder) {
 
+            setNotFound(false);
             const mr = new MediaRecorder(stream, options);
             mr.start();
             mr.ondataavailable = handleDataAvailable;
@@ -107,6 +111,7 @@ const SignSearch: React.FC<{
         <Dialog
             onOpenChange={(open) => {
                 if (open) {
+                    setNotFound(false);
                     openVideo();
                 } else {
                     closeVideo();
@@ -121,25 +126,55 @@ const SignSearch: React.FC<{
             }}
         >
             <DialogTrigger
-                className={buttonVariants({ variant: "secondary", className: "rounded-md" })}
+                className={buttonVariants({ variant: "secondary" })}
             >
+                <Camera />
                 Search by sign
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
-                    <DialogTitle>Use sign to search</DialogTitle>
+                    <DialogTitle>Search with a sign 👋</DialogTitle>
                     <DialogDescription>
-                        This action cannot be undone. This will permanently delete your account
-                        and remove your data from our servers.
+                        Sign a word in front of your camera. We'll record up to 10 seconds
+                        and find the closest match in the dictionary.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="flex flex-col gap-4">
-                    <video
-                        className="w-full aspect-video border border-dashed scale-x-[-1]"
-                        ref={videoRef}
-                        autoPlay
-                    />
+                    <div className="relative overflow-hidden rounded-2xl bg-muted ring-1 ring-border">
+                        <video
+                            className="w-full aspect-video scale-x-[-1] object-cover"
+                            ref={videoRef}
+                            autoPlay
+                            muted
+                            playsInline
+                        />
+                        {!stream && (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                                <Camera className="size-8" />
+                                <p className="text-sm">Waiting for camera access…</p>
+                            </div>
+                        )}
+                        {mediaRecorder && (
+                            <span className="absolute top-3 left-3 flex items-center gap-2 rounded-full bg-black/60 px-3 py-1 text-xs font-semibold text-white">
+                                <span className="size-2.5 animate-pulse rounded-full bg-red-500" />
+                                Recording
+                            </span>
+                        )}
+                        {loading && (
+                            <div className="absolute inset-0 flex items-center justify-center gap-2 bg-background/70 font-semibold">
+                                <Loader2 className="size-5 animate-spin text-primary" />
+                                Finding your sign…
+                            </div>
+                        )}
+                    </div>
+                    {notFound && !mediaRecorder && !loading && (
+                        <p className="flex items-center gap-2 rounded-xl bg-highlight/25 px-3 py-2 text-sm font-medium text-highlight-foreground">
+                            <TriangleAlert className="size-4 shrink-0" />
+                            We couldn't recognize that sign. Try again with your hands clearly in view.
+                        </p>
+                    )}
                     <Button
+                        size="lg"
                         variant={mediaRecorder ? "destructive" : "default"}
                         onClick={() => {
                             if (mediaRecorder) {
@@ -152,10 +187,10 @@ const SignSearch: React.FC<{
                     >
                         {
                             loading ?
-                                "Loading..." :
+                                <><Loader2 className="animate-spin" /> Searching…</> :
                                 mediaRecorder ?
-                                    "Stop recording" :
-                                    "Start recording"
+                                    <><Square className="fill-current" /> Stop recording</> :
+                                    <><Circle className="fill-current" /> Start recording</>
                         }
                     </Button>
                 </div>

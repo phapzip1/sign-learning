@@ -4,7 +4,8 @@ import { ActivityCalendar, type Activity, type Props } from "react-activity-cale
 import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList } from "@/components/ui/combobox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { CalendarDays, Flame, TrendingUp } from "lucide-react";
 import {
   getYearsStats,
   getStreakStats,
@@ -18,16 +19,19 @@ import { RemoteActivity } from "@/src/types/stats.type";
 const ActivityChart = lazy(() => import("@/src/components/activity-chart"));
 
 const calendarProps: Omit<Props, "data"> = {
-  theme: { light: ["#eee", "magenta"] },
+  theme: { light: ["#efeaf8", "#6d3fd6"] },
+  colorScheme: "light",
   showMonthLabels: true,
   showWeekdayLabels: ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
-  blockSize: 24,
+  blockSize: 14,
+  blockRadius: 4,
+  blockMargin: 4,
   showColorLegend: false,
   minLevel: 0,
   maxLevel: 5,
   tooltips: {
     activity: {
-      text: (activity) => `${activity.count} activities on ${activity.date}`,
+      text: (activity) => `${activity.count} reviews on ${activity.date}`,
     },
   },
 };
@@ -267,93 +271,115 @@ const MeIndexPage: React.FC = () => {
   const hasActivity = heatmapData.some(activity => activity.count > 0);
 
   return (
-    <div className="flex flex-col gap-4 w-400 mx-auto">
-      <Card className="rounded p-0">
-        <CardContent className="flex flex-col gap-4 pt-2 pb-4">
-          <div className="flex flex-row justify-between items-center">
-            <h2 className="block text-2xl font-semibold">Streak</h2>
-            <Combobox
-              items={availableYears}
-              value={
-                availableYears.length > 0
-                  ? selectedYear
-                  : undefined
-              }
-              onValueChange={(year) => {
-                if (year != null) {
-                  setSelectedYear(year);
+    <div className="flex w-full flex-col gap-6">
+      <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
+        {/* Streak */}
+        <Card className="relative overflow-hidden bg-linear-to-br from-highlight/60 to-amber-200/40 ring-highlight/50">
+          <div className="pointer-events-none absolute -right-8 -bottom-8 size-40 rounded-full bg-white/30 blur-2xl" />
+          <CardContent className="relative flex h-full flex-col justify-between gap-6">
+            <div className="flex items-center gap-2 font-bold text-highlight-foreground">
+              <Flame className="size-5" />
+              Current streak
+            </div>
+            {streakState === "loading" ? (
+              <Skeleton className="h-16 w-32 bg-white/50" />
+            ) : (
+              <div>
+                <p className="text-6xl font-black leading-none text-highlight-foreground">
+                  🔥 {streakValue}
+                </p>
+                <p className="mt-2 font-semibold text-highlight-foreground/80">
+                  {streakValue === 1 ? "day" : "days"} in a row
+                </p>
+              </div>
+            )}
+            <p className="text-sm text-highlight-foreground/80">
+              {streakValue > 0
+                ? "Keep it up! Study today to keep the flame alive."
+                : "Study a few cards today to start your streak."}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Heatmap */}
+        <Card className="min-w-0">
+          <CardContent className="flex flex-col gap-4">
+            <div className="flex flex-row flex-wrap items-center justify-between gap-3">
+              <h2 className="flex items-center gap-2 text-xl font-extrabold">
+                <CalendarDays className="size-5 text-primary" />
+                Study calendar
+              </h2>
+              <Combobox
+                items={availableYears}
+                value={
+                  availableYears.length > 0
+                    ? selectedYear
+                    : undefined
                 }
-              }}
-              disabled={availableYears.length === 0}
-            >
-              <ComboboxInput
-                placeholder={
-                  availableYears.length === 0
-                    ? "No activity yet"
-                    : "Year"
-                }
-                readOnly
-              />
-
-              <ComboboxContent>
-                <ComboboxEmpty>
-                  No activity years found.
-                </ComboboxEmpty>
-
-                <ComboboxList>
-                  {(year) => (
-                    <ComboboxItem
-                      key={year}
-                      value={year}
-                    >
-                      {year}
-                    </ComboboxItem>
-                  )}
-                </ComboboxList>
-              </ComboboxContent>
-            </Combobox>
-          </div>
-
-          <div className="flex flex-row gap-4">
-            <Card className="rounded">
-              <CardContent className="">
-                <div className="flex items-center gap-3">
-                  {streakState === "loading" ? (
-                    <span className="text-muted-foreground">
-                      Loading...
-                    </span>
-                  ) : (
-                    <span className="text-2xl font-bold">
-                      🔥 {streakValue}
-                    </span>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-            {
-              heatmapState === "loading" ? (
-                <h4>Loading...</h4>
-              ) : hasActivity ? (
-                <ActivityCalendar
-                  {...calendarProps}
-                  data={heatmapData}
+                onValueChange={(year) => {
+                  if (year != null) {
+                    setSelectedYear(year);
+                  }
+                }}
+                disabled={availableYears.length === 0}
+              >
+                <ComboboxInput
+                  className="w-36"
+                  placeholder={
+                    availableYears.length === 0
+                      ? "No activity yet"
+                      : "Year"
+                  }
+                  readOnly
                 />
-              ) : (
-                <h4 className="my-auto text-muted-foreground">
-                  No study activity yet.
-                </h4>
-              )
-            }
-          </div>
-        </CardContent>
-      </Card>
 
-      <Separator className="my-2" />
+                <ComboboxContent>
+                  <ComboboxEmpty>
+                    No activity years found.
+                  </ComboboxEmpty>
 
-      <Card className="rounded p-0">
-        <CardContent className="flex flex-col gap-4 pt-2 pb-4">
-          <div className="flex flex-row justify-between items-center-safe">
-            <h2 className="block text-2xl font-semibold">Activity</h2>
+                  <ComboboxList>
+                    {(year) => (
+                      <ComboboxItem
+                        key={year}
+                        value={year}
+                      >
+                        {year}
+                      </ComboboxItem>
+                    )}
+                  </ComboboxList>
+                </ComboboxContent>
+              </Combobox>
+            </div>
+
+            <div className="overflow-x-auto pb-1">
+              {
+                heatmapState === "loading" ? (
+                  <Skeleton className="h-36 w-full" />
+                ) : hasActivity ? (
+                  <ActivityCalendar
+                    {...calendarProps}
+                    data={heatmapData}
+                  />
+                ) : (
+                  <div className="flex h-36 flex-col items-center justify-center gap-1 rounded-2xl bg-muted/60 text-center">
+                    <p className="font-bold">No study activity yet</p>
+                    <p className="text-sm text-muted-foreground">Your practice days will light up here.</p>
+                  </div>
+                )
+              }
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-row flex-wrap items-center justify-between gap-3">
+            <h2 className="flex items-center gap-2 text-xl font-extrabold">
+              <TrendingUp className="size-5 text-primary" />
+              Activity
+            </h2>
             <Tabs onValueChange={(v: number) => setPeriod(v)} value={period}>
               <TabsList
               >
@@ -367,9 +393,15 @@ const MeIndexPage: React.FC = () => {
               </TabsList>
             </Tabs>
           </div>
-          <Suspense>
-            <ActivityChart data={chartData} />
-          </Suspense>
+          {
+            chartState === "loading" ? (
+              <Skeleton className="h-64 w-full" />
+            ) : (
+              <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+                <ActivityChart data={chartData} />
+              </Suspense>
+            )
+          }
         </CardContent>
       </Card>
     </div>

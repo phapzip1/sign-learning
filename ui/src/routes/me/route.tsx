@@ -1,59 +1,65 @@
-import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
+import { BarChart3, Layers3, Lightbulb, UserRound } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import React from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import PageHeader from "@/src/components/page-header";
 
 const tabs = [
     {
         path: "/",
         label: "Overview",
+        icon: BarChart3,
     },
     {
         path: "/collections",
-        label: "Collections"
+        label: "Collections",
+        icon: Layers3,
     },
     {
         path: "/suggestions",
-        label: "Suggestions"
+        label: "Suggestions",
+        icon: Lightbulb,
     }
 ];
 
 const getLastSegment = (url: string) => {
-    const segment = url.substring(url.lastIndexOf('/') + 1)
+    const path = url.replace(/\/+$/, "");
+    const segment = path.substring(path.lastIndexOf('/') + 1)
     return segment === "me" ? "/" : "/" + segment;
 }
 
 const MeRootLayout: React.FC = () => {
     const navigate = useNavigate();
-    const [tab, setTab] = React.useState(getLastSegment(window.location.href));
-
-    React.useEffect(() => {
-        navigate({ to: `/me${tab}` });
-    }, [tab, navigate]);
-
+    const pathname = useLocation({ select: (location) => location.pathname });
+    const tab = getLastSegment(pathname);
 
     return (
-        <div className="flex flex-col gap-4 w-full">
-            <Card className="rounded p-0 w-full min-h-12 max-h-12">
-                <CardContent className="">
-                    <Tabs
-                        value={tab}
-                        onValueChange={setTab}
-                    >
-                        <TabsList
-                            variant="line"
-                        >
-                            {
-                                tabs.map((tab) => {
-                                    return (
-                                        <TabsTrigger key={tab.path} value={tab.path}>{tab.label}</TabsTrigger>
-                                    );
-                                })
-                            }
-                        </TabsList>
-                    </Tabs>
-                </CardContent>
-            </Card>
+        <div className="flex w-full flex-col gap-6">
+            <PageHeader
+                icon={UserRound}
+                title="Your space"
+                description="Track your progress, organize collections, and share word ideas."
+            />
+            <Tabs
+                value={tab}
+                onValueChange={(value: string) => {
+                    navigate({ to: `/me${value}` });
+                }}
+            >
+                <TabsList className="h-11 max-w-full overflow-x-auto">
+                    {
+                        tabs.map((tab) => {
+                            const Icon = tab.icon;
+                            return (
+                                <TabsTrigger key={tab.path} value={tab.path} className="px-4">
+                                    <Icon className="size-4" />
+                                    {tab.label}
+                                </TabsTrigger>
+                            );
+                        })
+                    }
+                </TabsList>
+            </Tabs>
             <Outlet />
         </div>
     );
@@ -62,4 +68,3 @@ const MeRootLayout: React.FC = () => {
 export const Route = createFileRoute("/me")({
     component: MeRootLayout,
 });
-

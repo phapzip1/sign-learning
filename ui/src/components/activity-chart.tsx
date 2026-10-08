@@ -21,12 +21,23 @@ const ActivityChart: React.FC<{ data: RemoteActivity[] }> = ({ data }) => {
             data={data}
             className="mt-4"
         >
-            <CartesianGrid strokeDasharray={[3, 3]} />
-            <Typed.XAxis dataKey="date" />
-            <Typed.YAxis width="auto" />
-            <Tooltip />
+            <CartesianGrid strokeDasharray={[4, 4]} stroke="var(--border)" vertical={false} />
+            <Typed.XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} />
+            <Typed.YAxis width="auto" tickLine={false} axisLine={false} allowDecimals={false} tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} />
+            <Tooltip
+                contentStyle={{ borderRadius: 12, border: "1px solid var(--border)", boxShadow: "0 4px 12px rgb(0 0 0 / 0.08)" }}
+                cursor={{ stroke: "var(--chart-1)", strokeOpacity: 0.3 }}
+            />
             <Legend />
-            <Typed.Line dataKey="count" />
+            <Typed.Line
+                dataKey="count"
+                name="Reviews"
+                type="monotone"
+                stroke="var(--chart-1)"
+                strokeWidth={3}
+                dot={{ r: 4, fill: "var(--chart-1)", strokeWidth: 0 }}
+                activeDot={{ r: 6, fill: "var(--highlight)", stroke: "var(--chart-1)", strokeWidth: 2 }}
+            />
         </Typed.LineChart>
     );
 }

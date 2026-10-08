@@ -1,124 +1,92 @@
 import React from "react";
 import { useAuth } from "@clerk/tanstack-react-start";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Layers3, Play, Plus, Settings, Sparkles } from "lucide-react";
+import { cn } from "cn";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  columnVisibilityFeature,
-  createColumnHelper,
-  createPaginatedRowModel,
-  rowPaginationFeature,
-  tableFeatures,
-  useTable
-} from "@tanstack/react-table";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Play, Settings } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import PageHeader from "@/src/components/page-header";
+import EmptyState from "@/src/components/empty-state";
 import { getCollections } from "@/src/lib/api";
 import { RemoteCollectionCard } from "@/src/types/collection.type";
 
-const tbFeatures = tableFeatures({
-  columnVisibilityFeature,
-  rowPaginationFeature,
-  // rowSelectionFeature,
-  paginatedRowModel: createPaginatedRowModel(),
-});
+const CountPill: React.FC<{
+  label: string;
+  value: number;
+  className: string;
+}> = ({ label, value, className }) => {
+  return (
+    <div className={cn("flex flex-1 flex-col items-center rounded-2xl px-3 py-2", className)}>
+      <span className="text-2xl font-black leading-tight">{value}</span>
+      <span className="text-xs font-semibold">{label}</span>
+    </div>
+  );
+}
 
-const columnHelper = createColumnHelper<typeof tbFeatures, RemoteCollectionCard>();
+const CollectionCard: React.FC<{
+  collection: RemoteCollectionCard;
+}> = ({ collection }) => {
+  const navigate = useNavigate();
+  const total = collection.new + collection.learning + collection.due;
+
+  return (
+    <Card className="transition-all hover:-translate-y-1 hover:shadow-lg hover:shadow-primary/10" size="sm">
+      <CardContent className="flex h-full flex-col gap-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-secondary text-primary">
+              <Layers3 className="size-5" />
+            </span>
+            <div className="min-w-0">
+              <h3 className="truncate text-lg font-extrabold">{collection.name}</h3>
+              <p className="text-sm text-muted-foreground">
+                {total === 0 ? "All done for now 🎉" : `${total} cards to study`}
+              </p>
+            </div>
+          </div>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label="Collection settings"
+            onClick={() => {
+              navigate({
+                to: "/me/collections", search: {
+                  collection: collection.id,
+                }
+              })
+            }}
+          >
+            <Settings />
+          </Button>
+        </div>
+
+        <div className="flex gap-2">
+          <CountPill label="New" value={collection.new} className="bg-sky-100 text-sky-700" />
+          <CountPill label="Learning" value={collection.learning} className="bg-emerald-100 text-emerald-700" />
+          <CountPill label="Due" value={collection.due} className="bg-rose-100 text-rose-700" />
+        </div>
+
+        <Button
+          className="mt-auto w-full"
+          onClick={() => {
+            navigate({ to: `/flashcards/${collection.id}/learn` });
+          }}
+          disabled={total === 0}
+        >
+          <Play className="fill-current" />
+          {total === 0 ? "Nothing due" : "Study now"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
 
 const FlashCardPage: React.FC = () => {
   const navigate = useNavigate();
   const { getToken } = useAuth();
   const [collections, setCollections] = React.useState<RemoteCollectionCard[]>([]);
-
-  const columns = React.useMemo(() => columnHelper.columns([
-    columnHelper.accessor("name", {
-      header: "Name",
-      meta: {
-        width: "60%",
-      }
-    }),
-    columnHelper.accessor("new", {
-      header: "New",
-      cell: ({ row }) => {
-        return (
-          <p className="text-blue-500 font-semibold">{row.original.new}</p>
-        )
-      },
-      meta: {
-        width: "10%",
-      }
-    }),
-    columnHelper.accessor("learning", {
-      header: "Learn",
-      cell: ({ row }) => {
-        return (
-          <p className="text-green-500 font-semibold">{row.original.learning}</p>
-        )
-      },
-      meta: {
-        width: "10%",
-      }
-    }),
-    columnHelper.accessor("due", {
-      header: "Due",
-      cell: ({ row }) => {
-        return (
-          <p className="text-red-500 font-semibold">{row.original.due}</p>
-        )
-      },
-      meta: {
-        width: "10%",
-      }
-    }),
-    columnHelper.display({
-      id: "actions",
-      cell: ({ row }) => {
-
-        return (
-          <div className="flex flex-row gap-4 w-fit">
-            <Button
-              size="icon-sm"
-              onClick={() => {
-                navigate({ to: `/flashcards/${row.original.id}/learn` });
-              }}
-              disabled={row.original.new + row.original.learning + row.original.due === 0}
-            >
-              <Play />
-            </Button>
-            <Button
-              size="icon-sm"
-              variant="secondary"
-              onClick={() => {
-                navigate({
-                  to: "/me/collections", search: {
-                    collection: row.original.id,
-                  }
-                })
-              }}
-            >
-              <Settings />
-            </Button>
-          </div>
-        );
-      },
-      meta: {
-        width: "10%",
-      }
-    })
-  ]), []);
-
-  const table = useTable({
-    features: tbFeatures,
-    columns,
-    data: collections,
-  });
+  const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
     const fetchCollections = async () => {
@@ -129,82 +97,61 @@ const FlashCardPage: React.FC = () => {
         setCollections(data);
       } catch (error) {
         console.error(error);
+      } finally {
+        setLoading(false);
       }
     }
 
     fetchCollections();
   }, []);
 
+  const goToCollections = () => navigate({ to: "/me/collections", search: { collection: "" } });
 
   return (
-    <div className="w-300 mx-auto">
-      <div className="">
-        <h2 className="font-medium text-3xl">Flashcards</h2>
-        <p className="text-muted-foreground">Choose a collection to study</p>
-      </div>
-      <Card className="rounded mt-10">
-        <CardContent className="flex flex-row items-center justify-center">
-          <Table className="min-w-150">
-            <TableHeader>
-              {
-                table.getHeaderGroups().map((hg) => {
+    <div className="flex w-full flex-col gap-8">
+      <PageHeader
+        icon={Sparkles}
+        title="Flashcards"
+        description="Pick a collection and practice a few signs today."
+        actions={
+          <Button variant="outline" onClick={goToCollections}>
+            <Plus />
+            Manage collections
+          </Button>
+        }
+      />
 
-                  return (
-                    <TableRow key={hg.id}>
-                      {
-                        hg.headers.map((h) => {
-                          const width = (h.column.columnDef.meta as { width?: string }).width;
-                          return (
-                            <TableHead key={h.id} style={{ width }}>
-                              {
-                                h.isPlaceholder ? null : (
-                                  <table.FlexRender header={h} />
-                                )
-                              }
-                            </TableHead>
-                          );
-                        })
-                      }
-                    </TableRow>
-                  );
-                })
-              }
-            </TableHeader>
-            <TableBody>
-              {
-                table.getRowModel().rows?.length ? (
-                  table.getRowModel().rows.map((row) => {
-
-                    return (
-                      <TableRow
-                        key={row.id}
-                      >
-                        {
-                          row.getVisibleCells().map((cell) => {
-
-                            return (
-                              <TableCell key={cell.id}>
-                                <table.FlexRender cell={cell} />
-                              </TableCell>
-                            )
-                          })
-                        }
-                      </TableRow>
-                    )
-                  })
-                ) :
-                  (
-                    <TableRow>
-                      <TableCell colSpan={columns.length} className="h-24 text-center">
-                        No results.
-                      </TableCell>
-                    </TableRow>
-                  )
-              }
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      {
+        loading ? (
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {
+              Array.from({ length: 3 }, (_, i) => (
+                <Skeleton key={i} className="h-56 rounded-2xl" />
+              ))
+            }
+          </div>
+        ) : collections.length === 0 ? (
+          <EmptyState
+            icon={Layers3}
+            title="No collections yet"
+            description="Create a collection and add some signs from the dictionary to start practicing."
+            action={
+              <Button onClick={goToCollections}>
+                <Plus />
+                Create a collection
+              </Button>
+            }
+          />
+        ) : (
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {
+              collections.map((collection) => (
+                <CollectionCard key={collection.id} collection={collection} />
+              ))
+            }
+          </div>
+        )
+      }
     </div>
   );
 }

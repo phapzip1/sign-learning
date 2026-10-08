@@ -1,61 +1,101 @@
 import React from "react";
-import { Heart, List } from "lucide-react";
-import { createFileRoute } from "@tanstack/react-router";
+import { ArrowLeft, Heart, Lightbulb } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import SignDemo from "@/src/components/sign-demo";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getWord } from "@/src/lib/api";
 import AddToCollectionButton from "@/src/components/add-to-collection-button";
+import LevelBadge from "@/src/components/level-badge";
 import { Show } from "@clerk/tanstack-react-start";
+
+const BackLink: React.FC = () => (
+    <Button
+        variant="ghost"
+        size="sm"
+        className="w-fit -ml-2 text-muted-foreground"
+        render={
+            <Link to="/dictionary">
+                <ArrowLeft />
+                Back to dictionary
+            </Link>
+        }
+    />
+);
 
 const WordDetailPage: React.FC = () => {
     const word = Route.useLoaderData();
 
     return (
-        <div className="flex flex-col gap-4 w-full">
-            <h2 className="text-4xl font-semibold">{ }</h2>
-            <div className="flex flex-row justify-between gap-40">
-                <div className="flex flex-col gap-4">
-                    <h2 className="text-5xl font-semibold">{word.title}</h2>
-                    <p>
-                        <span className="font-semibold">Definition:</span>
-                        {" "}
+        <div className="flex w-full flex-col gap-6">
+            <BackLink />
+
+            <div className="flex flex-col-reverse gap-6 md:flex-row md:items-center md:justify-between">
+                <div className="flex flex-col gap-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                        {word.topic.id !== 999 && (
+                            <Badge variant="secondary">
+                                {word.topic.value}
+                            </Badge>
+                        )}
+                        {word.level && <LevelBadge level={word.level} />}
+                    </div>
+                    <h1 className="text-4xl font-black sm:text-5xl">
+                        {word.title.charAt(0).toUpperCase() + word.title.slice(1)}
+                    </h1>
+                    <p className="max-w-2xl text-lg leading-8 text-muted-foreground">
                         {word.description}
                     </p>
                 </div>
-                <img
-                    className="w-100 aspect-video object-contain"
-                    src={word.cover}
-                />
-            </div>
-            <div className="flex flex-row gap-2">
-
-            </div>
-            <div className="flex flex-row gap-8">
-                <SignDemo
-                    className="flex-5"
-                    src={word.demo}
-
-                />
-                <div className="flex flex-col flex-2 justify-between">
-                    <div className="flex flex-col">
-                        <span className="flex flex-row gap-2 items-center h-fit">
-                            <List />
-                            <h3 className="text-xl font-medium">Instruction</h3>
-                        </span>
-                        <div className="flex flex-col gap-4 pt-4">
-                            {
-                                word.instruction
-                            }
-                        </div>
+                {word.cover && (
+                    <div className="w-full shrink-0 overflow-hidden rounded-2xl bg-linear-to-br from-secondary to-highlight/20 md:w-80">
+                        <img
+                            className="aspect-video w-full object-contain"
+                            src={word.cover}
+                            alt={word.title}
+                        />
                     </div>
+                )}
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+                <Card className="p-0">
+                    <SignDemo
+                        className="overflow-hidden rounded-2xl bg-black"
+                        src={word.demo}
+                    />
+                </Card>
+
+                <div className="flex flex-col gap-4">
+                    <Card className="h-full bg-highlight/15 ring-highlight/40" size="sm">
+                        <CardContent className="flex flex-col gap-3">
+                            <span className="flex items-center gap-2">
+                                <span className="flex size-9 items-center justify-center rounded-xl bg-highlight/50 text-highlight-foreground">
+                                    <Lightbulb className="size-5" />
+                                </span>
+                                <h2 className="text-lg font-extrabold">How to sign it</h2>
+                            </span>
+                            <div className="flex flex-col gap-4 leading-7 whitespace-pre-line">
+                                {
+                                    word.instruction || (
+                                        <span className="text-muted-foreground">
+                                            Watch the video and copy the hand shape and movement.
+                                        </span>
+                                    )
+                                }
+                            </div>
+                        </CardContent>
+                    </Card>
 
                     <Show when="signed-in">
                         <AddToCollectionButton
                             wordId={word.id}
                             trigger={
                                 <Button
-                                    variant="outline"
-                                    className="flex flex-row"
+                                    size="lg"
+                                    className="w-full"
                                 >
                                     <Heart />
                                     Add to a collection
@@ -64,9 +104,6 @@ const WordDetailPage: React.FC = () => {
                         />
                     </Show>
                 </div>
-            </div>
-            <h3 className="text-xl font-medium">Related words</h3>
-            <div className="flex flex-row gap-4">
             </div>
         </div>
     );
@@ -82,10 +119,17 @@ export const Route = createFileRoute("/dictionary/$wordId")({
     pendingComponent: () => {
 
         return (
-            <div className="p-4 animate-pulse">
-                <div className="h-6 bg-gray-200 rounded w-1/4 mb-4"></div>
-                <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
-                <div className="h-4 bg-gray-200 rounded w-full"></div>
+            <div className="flex w-full flex-col gap-6">
+                <Skeleton className="h-8 w-40" />
+                <div className="flex flex-col gap-3">
+                    <Skeleton className="h-5 w-32" />
+                    <Skeleton className="h-12 w-1/3" />
+                    <Skeleton className="h-5 w-2/3" />
+                </div>
+                <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+                    <Skeleton className="aspect-video w-full rounded-2xl" />
+                    <Skeleton className="h-64 w-full rounded-2xl" />
+                </div>
             </div>
         );
     }

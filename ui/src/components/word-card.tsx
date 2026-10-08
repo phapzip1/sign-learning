@@ -1,11 +1,12 @@
 import { Show } from "@clerk/tanstack-react-start";
 import { useNavigate } from "@tanstack/react-router";
-import { Heart } from "lucide-react";
+import { ArrowRight, Hand, Heart } from "lucide-react";
 import { cn } from "cn";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import AddToCollectionButton from "@/src/components/add-to-collection-button";
+import LevelBadge from "@/src/components/level-badge";
 import { TOPICS } from "@/src/types/topic.type";
 import { WordLevel } from "@/src/types/word.type";
 
@@ -30,60 +31,67 @@ const WordCard: React.FC<WordCardProps> = ({
     className,
 }) => {
     const navigate = useNavigate();
-    
+    const topic = TOPICS.find(x => x.id === category)?.value.split(" ")[0];
+
     return (
-        <Card className={cn("rounded p-0 items-stretch", className)}>
-            <CardContent className="flex flex-col p-2 min-w-full max-w-70 h-full overflow-hidden">
-                <div className="max-w-full">
-                    <img
-                        src={thumbnail}
-                        className="min-w-full aspect-video object-contain"
-                    />
-                </div>
-                <div className="flex flex-row justify-between items-center-safe gap-2 w-full">
-                    <h4 className="text-lg font-medium">{title.charAt(0).toUpperCase() + title.slice(1)}</h4>
-                    <span className="flex flex-row items-center gap-2">
-                        <Badge >
-                            {TOPICS.find(x => x.id === category)?.value.split(" ")[0]}
-                        </Badge>
-                        <Badge
-                            className={cn(
-                                "font-semibold rounded px-2",
-                                level === "Beginner" && "bg-green-200 text-green-600",
-                                level === "Intermediate" && "bg-orange-200 text-orange-600",
-                                level === "Advance" && "bg-red-200 text-red-600",
-                            )}
-                        >
-                            {level}
-                        </Badge>
-                    </span>
-                </div>
-                <p className="text-muted-foreground text-ellipsis">
+        <Card className={cn("group/word gap-0 p-0 transition-all hover:-translate-y-1 hover:shadow-lg hover:shadow-primary/10", className)}>
+            <CardContent className="flex h-full flex-col gap-3 p-3">
+                <button
+                    type="button"
+                    className="relative flex aspect-video w-full cursor-pointer items-center justify-center overflow-hidden rounded-xl bg-linear-to-br from-secondary to-highlight/20"
+                    onClick={() => navigate({ to: "/dictionary/" + id })}
+                    aria-label={`View ${title}`}
+                >
                     {
-                        description
+                        thumbnail
+                            ? <img
+                                src={thumbnail}
+                                alt={title}
+                                className="size-full object-contain transition-transform duration-300 group-hover/word:scale-105"
+                            />
+                            : <Hand className="size-10 text-primary/50" />
                     }
-                </p>
-                <div className="flex flex-row justify-between items-center mt-auto">
+                </button>
+                <div className="flex flex-col gap-2 px-1">
+                    <h4 className="text-lg font-bold leading-tight">
+                        {title.charAt(0).toUpperCase() + title.slice(1)}
+                    </h4>
+                    <span className="flex flex-wrap items-center gap-1.5">
+                        {topic && (
+                            <Badge variant="secondary">
+                                {topic}
+                            </Badge>
+                        )}
+                        <LevelBadge level={level} />
+                    </span>
+                    <p className="line-clamp-2 text-muted-foreground">
+                        {description}
+                    </p>
+                </div>
+                <div className="mt-auto flex flex-row items-center justify-between gap-2 px-1 pt-1">
                     <Show when="signed-in">
                         <AddToCollectionButton
                             wordId={id}
                             trigger={
                                 <Button
                                     variant="ghost"
-                                    className="flex flex-row items-center gap-2 rounded"
                                     size="icon"
+                                    className="text-rose-500 hover:bg-rose-50 hover:text-rose-600"
+                                    aria-label="Add to a collection"
                                 >
-                                    <Heart />
+                                    <Heart className="size-5" />
                                 </Button>
                             }
                         />
                     </Show>
                     <Button
-                        variant="outline"
-                        className="rounded"
+                        variant="secondary"
+                        size="sm"
+                        className="ml-auto"
                         onClick={() => navigate({ to: "/dictionary/" + id })}
                     >
-                        View detail
+                        View sign
+                        <ArrowRight />
                     </Button>
                 </div>
             </CardContent>
