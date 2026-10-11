@@ -23,7 +23,7 @@ import PageHeader from "@/src/components/page-header";
 import EmptyState from "@/src/components/empty-state";
 import { levelStyles } from "@/src/components/level-badge";
 import { WordItem, WordLevel, WORD_LEVELS, WORDSORTs } from "@/src/types/word.type";
-import { Topic, TOPICS } from "@/src/types/topic.type";
+import { Topic, TopicId, TOPICS, WORD_TOPICS } from "@/src/types/topic.type";
 import WordPagination from "@/src/components/word-pagination";
 import { getWordList } from "@/src/lib/api";
 
@@ -45,111 +45,152 @@ const FilterSection: React.FC<{
     );
 }
 
+type DictionarySearch = {
+    q?: string;
+    topic?: TopicId;
+    levels?: WordLevel[];
+    sort?: number;
+    page?: number;
+};
+
+const validateDictionarySearch = (search: Record<string, unknown>): DictionarySearch => {
+    const q = typeof search.q === "string" && search.q.trim() ? search.q : undefined;
+
+    const topic = WORD_TOPICS.find((t) => t.id === Number(search.topic))?.id;
+
+    const levels = Array.isArray(search.levels)
+        ? WORD_LEVELS.filter((level) => (search.levels as unknown[]).includes(level))
+        : undefined;
+
+    const sort = WORDSORTs.find((s) => s.value === Number(search.sort))?.value;
+
+    const page = Number(search.page);
+
+    return {
+        q,
+        topic,
+        // All levels selected is the default, so keep it out of the URL.
+        levels: levels && levels.length !== WORD_LEVELS.length ? levels : undefined,
+        sort: sort !== WORDSORTs[0].value ? sort : undefined,
+        page: Number.isInteger(page) && page > 1 ? page : undefined,
+    };
+}
+
 const DictionaryPage: React.FC = () => {
-    const [category, setCategory] = React.useState<Topic>(TOPICS[0]);
-    const [sort, setSort] = React.useState<number>(WORDSORTs[0].value);
-    const [keyword, setKeyword] = React.useState<string>("");
-    const [debouncedKeyword, setDebouncedKeyword] = React.useState<string>("");
+    const navigate = Route.useNavigate();
+    const params = Route.useSearch();
+
+    const query = params.q ?? "";
+    const category: Topic = TOPICS.find((t) => t.id === params.topic) ?? TOPICS[0];
+    const sort = params.sort ?? WORDSORTs[0].value;
+    const levels = React.useMemo(() => params.levels ?? [...WORD_LEVELS], [params.levels]);
+    const page = params.page ?? 1;
+
+    // The text box is local so typing stays responsive; it is committed to the URL after a pause.
+    const [keyword, setKeyword] = React.useState<string>(query);
     const [items, setItems] = React.useState<WordItem[]>([]);
-    const [levels, setLevels] = React.useState<WordLevel[]>([...WORD_LEVELS]);
     const [loading, setLoading] = React.useState(true);
     const [failed, setFailed] = React.useState(false);
-    const [pagitaion, setPagination] = React.useState({
-        page: 1,
-        totalPages: 0,
-    });
+    const [totalPages, setTotalPages] = React.useState(0);
+    // Bumped to refetch with unchanged params (retry, or re-submitting the same search).
+    const [reloadKey, setReloadKey] = React.useState(0);
+
+    const updateSearch = React.useCallback((patch: Partial<DictionarySearch>, resetPage = true) => {
+        navigate({
+            search: (prev) => validateDictionarySearch({
+                ...prev,
+                ...(resetPage ? { page: undefined } : {}),
+                ...patch,
+            }),
+            replace: true,
+        });
+    }, [navigate]);
+
+    // Keep the box in sync when the URL changes from outside (back/forward, sign search).
+    React.useEffect(() => {
+        setKeyword(query);
+    }, [query]);
 
     // Only the latest request is allowed to update the list.
     const requestId = React.useRef(0);
 
-    const fetchWords = React.useCallback(async (pageIndex: number, search: string) => {
+    React.useEffect(() => {
         const id = ++requestId.current;
         setLoading(true);
         setFailed(false);
 
-        try {
-            const { page, items, totalPages } = await getWordList({
-                page: pageIndex,
-                pageSize: PAGE_SIZE,
-                topic: category.id !== 999 ? category.id : undefined,
-                sortId: sort,
-                levels: levels,
-                search: search,
+        getWordList({
+            page,
+            pageSize: PAGE_SIZE,
+            topic: params.topic,
+            sortId: sort,
+            levels: levels,
+            search: query,
+        })
+            .then((result) => {
+                if (id !== requestId.current)
+                    return;
+
+                setTotalPages(result.totalPages);
+                setItems(result.items);
+            })
+            .catch(() => {
+                if (id !== requestId.current)
+                    return;
+
+                setItems([]);
+                setFailed(true);
+            })
+            .finally(() => {
+                if (id === requestId.current)
+                    setLoading(false);
             });
-
-            if (id !== requestId.current)
-                return;
-
-            setPagination(() => ({ page, totalPages }));
-            setItems(items);
-        } catch (error) {
-            if (id !== requestId.current)
-                return;
-
-            console.error(error);
-            setItems([]);
-            setFailed(true);
-        } finally {
-            if (id === requestId.current)
-                setLoading(false);
-        }
-    }, [category, sort, levels]);
+    }, [page, params.topic, sort, levels, query, reloadKey]);
 
     // Debounce typing so we don't fire a request on every keystroke.
     React.useEffect(() => {
-        const handler = setTimeout(() => setDebouncedKeyword(keyword), 350);
+        if (keyword.trim() === query)
+            return;
+
+        const handler = setTimeout(() => updateSearch({ q: keyword.trim() || undefined }), 350);
         return () => clearTimeout(handler);
-    }, [keyword]);
+    }, [keyword, query, updateSearch]);
 
-    // Reload from the first page whenever filters or the search keyword change.
-    React.useEffect(() => {
-        fetchWords(1, debouncedKeyword);
-    }, [fetchWords, debouncedKeyword]);
-
+    // An explicit submit skips the debounce, and refetches if nothing changed.
     const search = () => {
-        if (keyword === debouncedKeyword) {
-            fetchWords(1, keyword);
+        if (keyword.trim() === query) {
+            setReloadKey((k) => k + 1);
         } else {
-            // The effect above refetches once the keyword settles.
-            setDebouncedKeyword(keyword);
+            updateSearch({ q: keyword.trim() || undefined });
         }
     }
 
-    const reset = () => {
-        setLevels(() => [...WORD_LEVELS]);
-        setCategory(() => TOPICS[0]);
-        setSort(() => WORDSORTs[0].value);
+    const retry = () => setReloadKey((k) => k + 1);
+
+    const resetFilters = () => {
+        updateSearch({ topic: undefined, levels: undefined, sort: undefined });
+    }
+
+    const clearAll = () => {
+        setKeyword("");
+        updateSearch({ q: undefined, topic: undefined, levels: undefined, sort: undefined });
     }
 
     const toggleLevel = (level: WordLevel) => {
-        setLevels((prev) => prev.includes(level)
-            ? prev.filter((x) => x !== level)
-            : [...prev, level]
-        );
+        const next = levels.includes(level)
+            ? levels.filter((x) => x !== level)
+            : [...levels, level];
+
+        updateSearch({ levels: next });
     }
 
     const onPageChanges = (pageIndex: number) => {
-        fetchWords(pageIndex, debouncedKeyword);
+        updateSearch({ page: pageIndex }, false);
     }
 
-    const onSignSearch = (keywords: Record<string, number>) => {
-        let val = null;
-        let score = 0.0;
-        for (const kw in keywords) {
-            if (score < keywords[kw]) {
-                val = kw;
-                score = keywords[kw];
-            }
-        }
-
-        if (!val || score < 4.5) {
-            console.log("invalid sign");
-            return false;
-        }
-        console.log(keywords);
-
-        setKeyword(val);
-        return true;
+    const onSignSearch = (word: string) => {
+        setKeyword(word);
+        updateSearch({ q: word });
     }
 
     const isFiltered = category.id !== TOPICS[0].id
@@ -173,7 +214,7 @@ const DictionaryPage: React.FC = () => {
                             <Button
                                 variant="ghost"
                                 size="xs"
-                                onClick={reset}
+                                onClick={resetFilters}
                                 disabled={!isFiltered}
                             >
                                 <RotateCcw />
@@ -191,7 +232,7 @@ const DictionaryPage: React.FC = () => {
                                                 key={topic.id}
                                                 type="button"
                                                 aria-pressed={active}
-                                                onClick={() => setCategory(topic)}
+                                                onClick={() => updateSearch({ topic: topic.id === 999 ? undefined : topic.id })}
                                                 className={cn(
                                                     "shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold transition-colors",
                                                     active
@@ -239,7 +280,7 @@ const DictionaryPage: React.FC = () => {
                                 value={sort}
                                 onValueChange={(val) => {
                                     if (val != null)
-                                        setSort(val as number);
+                                        updateSearch({ sort: val as number });
                                 }}
                             >
                                 <SelectTrigger className="w-full">
@@ -277,6 +318,7 @@ const DictionaryPage: React.FC = () => {
                                 className="h-12 text-base"
                                 value={keyword}
                                 onChange={(e) => setKeyword(e.target.value)}
+                                aria-label="Search the dictionary"
                             />
                         </InputGroup>
                         <div className="flex items-center gap-2">
@@ -284,7 +326,7 @@ const DictionaryPage: React.FC = () => {
                                 Search
                             </Button>
                             <span className="text-sm text-muted-foreground">or</span>
-                            <SignSearch onSearchComplete={onSignSearch} />
+                            <SignSearch onSelect={onSignSearch} />
                         </div>
                     </form>
 
@@ -313,8 +355,8 @@ const DictionaryPage: React.FC = () => {
                                 }
                                 action={
                                     failed
-                                        ? <Button onClick={search}>Try again</Button>
-                                        : isFiltered && <Button variant="outline" onClick={reset}>Clear filters</Button>
+                                        ? <Button onClick={retry}>Try again</Button>
+                                        : (isFiltered || query) && <Button variant="outline" onClick={clearAll}>Clear search and filters</Button>
                                 }
                             />
                         ) : (
@@ -338,10 +380,10 @@ const DictionaryPage: React.FC = () => {
                         )
                     }
                     {
-                        items.length !== 0 && pagitaion.totalPages > 1 &&
+                        items.length !== 0 && totalPages > 1 &&
                         <WordPagination
-                            page={pagitaion.page}
-                            totalPages={pagitaion.totalPages}
+                            page={page}
+                            totalPages={totalPages}
                             onPageChange={onPageChanges}
                         />
                     }
@@ -353,4 +395,8 @@ const DictionaryPage: React.FC = () => {
 
 export const Route = createFileRoute("/dictionary/")({
     component: DictionaryPage,
+    validateSearch: validateDictionarySearch,
+    head: () => ({
+        meta: [{ title: "Dictionary · Sign Learning" }],
+    }),
 });

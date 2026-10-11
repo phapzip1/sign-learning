@@ -1,23 +1,27 @@
 import axios from "axios";
 import qs from "qs";
 import { createServerFn } from "@tanstack/react-start";
-import { clerkClient } from "@clerk/tanstack-react-start/server";
+import { auth, clerkClient } from "@clerk/tanstack-react-start/server";
 import { RemoteWordCard, RemoteWordItem, RemoteWordListResponse, WordItem, WordLevel, WORDSORTs, WordUpsertPayload } from "@/src/types/word.type";
 import { TOPICS, WORD_TOPICS } from "@/src/types/topic.type";
 import { RemoteCollection, RemoteCollectionCard, RemoteCollectionUpsert } from "@/src/types/collection.type";
 import { RemoteActivityPoint, RemoteDailyActivity } from "@/src/types/stats.type";
 import { RemoteStudy, ReviewPayload } from "@/src/types/study.type";
+import { isNotFound } from "@/src/lib/errors";
 import { ApproveSuggestionPayload, CreateSuggestionPayload, RemoteRejectSuggestion, RemoteSuggestionApproval, SuggestionStatus, WordSuggestion } from "@/src/types/suggestion.type";
 
 const api = axios.create({
     baseURL: "http://localhost:5026",
+    timeout: 15_000,
     headers: {
         "Content-Type": "application/json"
     }
 });
 
+// Inference decodes and runs the model over the whole clip, so allow it longer.
 const ai = axios.create({
-    baseURL: "http://localhost:8080"
+    baseURL: "http://localhost:8080",
+    timeout: 60_000,
 });
 
 const searchBySign = async (video: Blob[]) => {
@@ -120,6 +124,17 @@ const getCollections = async (auth: string) => {
     return data;
 }
 
+// Full deck configuration, including its study settings (DeckConfigDTO).
+const getCollection = async (deckId: string, auth: string) => {
+    const { data } = await api.get<RemoteCollection>(`api/decks/${deckId}`, {
+        headers: {
+            "Authorization": auth
+        }
+    });
+
+    return data;
+}
+
 const getCards = async (deckId: string, auth: string) => {
     const { data, status, statusText } = await api.get<RemoteWordCard[]>(`api/decks/${deckId}/cards`, {
         headers: {
@@ -166,18 +181,30 @@ const deleteCollection = async (collection: string, auth: string) => {
 }
 
 
-const belongCollection = async (wordId: number, auth: string) => {
-    const { data, status } = await api.get<RemoteCollection>(`api/words/${wordId}/deck`, {
-        headers: {
-            "Authorization": auth
-        }
-    });
+// Returns the id of the user's deck that holds this word, or null when the
+// word isn't in any deck (the API answers 404 in that case).
+const belongCollection = async (wordId: number, auth: string): Promise<string | null> => {
+    try {
+        const { data } = await api.get<RemoteCollection>(`api/words/${wordId}/deck`, {
+            headers: {
+                "Authorization": auth
+            }
+        });
 
-    return data.id;
+        return data.id;
+    } catch (error) {
+        if (isNotFound(error)) {
+            return null;
+        }
+
+        throw error;
+    }
 }
 
 const addNewCards = async (deckId: string, wordIds: number[], auth: string) => {
-    const { data } = await api.post<{ added: number; alreadyFound: number; notFound: number }>(
+    // Mirrors IDeckService.AddWordToDeckResult. A user holds at most one card per
+    // word, so adding a word that lives in another deck moves that card here.
+    const { data } = await api.post<{ added: number; moved: number; alreadyInDeck: number }>(
         `api/decks/${deckId}/words`,
         {
             wordIds: wordIds
@@ -265,6 +292,19 @@ const getAdminUsers = createServerFn({ method: "GET" })
         search?: string;
     }) => data)
     .handler(async ({ data }) => {
+        // This handler reads Clerk directly with the secret key, so it must enforce
+        // the same rule as the API's "Admin" policy: a signed-in user whose session
+        // token carries role "admin".
+        const { userId, sessionClaims } = await auth();
+
+        if (!userId) {
+            throw new Error("Unauthorized");
+        }
+
+        if ((sessionClaims as { role?: unknown } | null)?.role !== "admin") {
+            throw new Error("Forbidden");
+        }
+
         const page = Math.max(1, data.page);
         const pageSize = Math.min(
             Math.max(1, data.pageSize),
@@ -395,6 +435,16 @@ const updateWord = async (wordId: number, payload: WordUpsertPayload, token: str
     return data;
 };
 
+const deleteWord = async (wordId: number, token: string) => {
+    await api.delete(`/api/words/${wordId}`,
+        {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        }
+    );
+};
+
 const createSuggestion = async (payload: CreateSuggestionPayload, token: string) => {
     const { data } = await api.post<WordSuggestion>("/api/word-suggestions",
         payload,
@@ -424,6 +474,7 @@ export {
     getWord,
     getWordList,
     getCollections,
+    getCollection,
     getCards,
     belongCollection,
     createCollection,
@@ -445,5 +496,6 @@ export {
     rejectSuggestion,
     createWord,
     updateWord,
+    deleteWord,
     getClaims,
 }

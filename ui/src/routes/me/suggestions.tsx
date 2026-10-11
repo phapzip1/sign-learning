@@ -872,4 +872,7 @@ const SuggestionsTab = () => {
 
 export const Route = createFileRoute("/me/suggestions")({
   component: SuggestionsTab,
+  head: () => ({
+      meta: [{ title: "Your suggestions · Sign Learning" }],
+  }),
 });

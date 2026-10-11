@@ -67,4 +67,7 @@ const MeRootLayout: React.FC = () => {
 
 export const Route = createFileRoute("/me")({
     component: MeRootLayout,
+    head: () => ({
+        meta: [{ title: "Your space · Sign Learning" }],
+    }),
 });

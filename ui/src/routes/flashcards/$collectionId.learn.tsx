@@ -1,6 +1,5 @@
 import React, { useEffect } from "react";
 import { useAuth } from "@clerk/tanstack-react-start";
-import { create } from "zustand";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
     ArrowLeft,
@@ -56,74 +55,29 @@ const BackLink: React.FC = () => (
 
 
 
-type StudyState = {
-    state: | "idle" | "loading" | "loaded" | "reviewing" | "error";
+type StudyPhase = "idle" | "loading" | "loaded" | "reviewing" | "error";
 
-    data: RemoteStudy | null;
-
-    revealed: boolean;
-
-    error: string | null;
-
-    setState: (state: StudyState["state"]) => void;
-    setData: (data: RemoteStudy | null) => void;
-    setRevealed: (revealed: boolean) => void;
-    setError: (error: string | null) => void;
-    reset: () => void;
-};
-
-const useStudy = create<StudyState>()(
-    (set) => ({
-        state: "idle",
-
-        data: null,
-
-        revealed: false,
-
-        error: null,
-
-        setState: (state) => set({ state }),
-
-        setData: (data) =>
-            set({
-                data,
-                // A new card should always start hidden.
-                revealed: false,
-            }),
-
-        setRevealed: (revealed) => set({ revealed }),
-
-        setError: (error) => set({ error }),
-
-        reset: () => set({
-            state: "idle",
-            data: null,
-            revealed: false,
-            error: null,
-        }),
-    })
-);
-
-const clientEventId = crypto.randomUUID();
-
+// Space/Enter activate whatever control has focus (buttons, links, media
+// controls), so the reveal shortcut only applies when nothing interactive is focused.
+const INTERACTIVE = "a, button, input, textarea, select, summary, video, audio, iframe, [contenteditable=true], [role=button], [role=slider], [role=radio], [role=checkbox], [role=tab], [role=menuitem]";
+const TEXT_ENTRY = "input, textarea, select, [contenteditable=true]";
 
 const LearnFlashCardPage: React.FC = () => {
     const { getToken } = useAuth();
 
     const { collectionId: deckId } = Route.useParams();
 
-    const {
-        state,
-        data: study,
-        revealed,
-        error,
+    // Session-only UI state; the card data itself always comes from the server.
+    const [state, setState] = React.useState<StudyPhase>("idle");
+    const [study, setStudy] = React.useState<RemoteStudy | null>(null);
+    const [revealed, setRevealed] = React.useState(false);
+    const [error, setError] = React.useState<string | null>(null);
 
-        setState,
-        setData,
-        setRevealed,
-        setError,
-        reset,
-    } = useStudy();
+    const setData = React.useCallback((data: RemoteStudy | null) => {
+        setStudy(data);
+        // A new card should always start hidden.
+        setRevealed(false);
+    }, []);
 
     //
     // Load current study state/card.
@@ -192,25 +146,32 @@ const LearnFlashCardPage: React.FC = () => {
 
         return () => {
             cancelled = true;
-            reset();
         };
     }, [
         deckId,
         getToken,
-        reset,
         setData,
-        setError,
-        setState,
     ]);
 
     //
     // Submit rating.
     //
+    // Guards against a second rating (double click / repeated key) landing
+    // before the "reviewing" state has re-rendered.
+    const submittingRef = React.useRef(false);
+
     const handleReview = async (rating: RecallRating) => {
         const card = study?.currentCard;
 
-        if (!card)
+        if (!card || submittingRef.current)
             return;
+
+        submittingRef.current = true;
+
+        // The backend de-duplicates reviews by (clientEventId, cardId), so every
+        // rating needs its own id; reusing one would drop later ratings of a card
+        // that comes back in the same session.
+        const clientEventId = crypto.randomUUID();
 
         setState("reviewing");
         setError(null);
@@ -259,6 +220,9 @@ const LearnFlashCardPage: React.FC = () => {
 
             setState("error");
         }
+        finally {
+            submittingRef.current = false;
+        }
     };
 
     //
@@ -267,16 +231,19 @@ const LearnFlashCardPage: React.FC = () => {
     const shortcutRef = React.useRef<(e: KeyboardEvent) => void>(() => { });
 
     shortcutRef.current = (e: KeyboardEvent) => {
-        const target = e.target as HTMLElement | null;
+        if (e.repeat || e.altKey || e.ctrlKey || e.metaKey)
+            return;
 
-        if (target?.closest("input, textarea, select, [contenteditable=true]"))
+        const target = e.target instanceof Element ? e.target : null;
+
+        if (target?.closest(TEXT_ENTRY))
             return;
 
         if (state !== "loaded" || !study?.currentCard)
             return;
 
         if (!revealed) {
-            if (e.key === " " || e.key === "Enter") {
+            if ((e.key === " " || e.key === "Enter") && !target?.closest(INTERACTIVE)) {
                 e.preventDefault();
                 setRevealed(true);
             }
@@ -576,4 +543,7 @@ const LearnFlashCardPage: React.FC = () => {
 
 export const Route = createFileRoute("/flashcards/$collectionId/learn")({
     component: LearnFlashCardPage,
+    head: () => ({
+        meta: [{ title: "Study session · Sign Learning" }],
+    }),
 });

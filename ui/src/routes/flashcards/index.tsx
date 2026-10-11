@@ -1,7 +1,7 @@
 import React from "react";
-import { useAuth } from "@clerk/tanstack-react-start";
+import { SignInButton, useAuth } from "@clerk/tanstack-react-start";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Layers3, Play, Plus, Settings, Sparkles } from "lucide-react";
+import { CloudOff, Layers3, LogIn, Play, Plus, RotateCcw, Settings, Sparkles } from "lucide-react";
 import { cn } from "cn";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import PageHeader from "@/src/components/page-header";
 import EmptyState from "@/src/components/empty-state";
 import { getCollections } from "@/src/lib/api";
 import { RemoteCollectionCard } from "@/src/types/collection.type";
+import { toApiError } from "@/src/lib/errors";
 
 const CountPill: React.FC<{
   label: string;
@@ -84,26 +85,33 @@ const CollectionCard: React.FC<{
 
 const FlashCardPage: React.FC = () => {
   const navigate = useNavigate();
-  const { getToken } = useAuth();
+  const { getToken, isLoaded, isSignedIn } = useAuth();
   const [collections, setCollections] = React.useState<RemoteCollectionCard[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const fetchCollections = React.useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const token = await getToken();
+      const data = await getCollections(`Bearer ${token}`);
+
+      setCollections(data);
+    } catch (error) {
+      setError(toApiError(error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, [getToken]);
 
   React.useEffect(() => {
-    const fetchCollections = async () => {
-      try {
-        const token = await getToken();
-        const data = await getCollections(`Bearer ${token}`);
-
-        setCollections(data);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
+    // Wait for Clerk so signed-out visitors get a sign-in prompt, not an API error.
+    if (isLoaded && isSignedIn) {
+      fetchCollections();
     }
-
-    fetchCollections();
-  }, []);
+  }, [isLoaded, isSignedIn, fetchCollections]);
 
   const goToCollections = () => navigate({ to: "/me/collections", search: { collection: "" } });
 
@@ -122,7 +130,21 @@ const FlashCardPage: React.FC = () => {
       />
 
       {
-        loading ? (
+        isLoaded && !isSignedIn ? (
+          <EmptyState
+            icon={LogIn}
+            title="Sign in to study"
+            description="Your collections and study progress are saved to your account. Sign in to see them, or keep browsing the dictionary without an account."
+            action={
+              <SignInButton mode="modal">
+                <Button>
+                  <LogIn />
+                  Sign in
+                </Button>
+              </SignInButton>
+            }
+          />
+        ) : !isLoaded || loading ? (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {
               Array.from({ length: 3 }, (_, i) => (
@@ -130,6 +152,18 @@ const FlashCardPage: React.FC = () => {
               ))
             }
           </div>
+        ) : error ? (
+          <EmptyState
+            icon={CloudOff}
+            title="Couldn't load your collections"
+            description={error}
+            action={
+              <Button onClick={fetchCollections}>
+                <RotateCcw />
+                Try again
+              </Button>
+            }
+          />
         ) : collections.length === 0 ? (
           <EmptyState
             icon={Layers3}
@@ -158,4 +192,7 @@ const FlashCardPage: React.FC = () => {
 
 export const Route = createFileRoute("/flashcards/")({
   component: FlashCardPage,
+  head: () => ({
+    meta: [{ title: "Study · Sign Learning" }],
+  }),
 });
