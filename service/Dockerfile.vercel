@@ -1,0 +1,15 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+# Restore first so package layers stay cached until the project file changes.
+COPY service.csproj ./
+RUN dotnet restore
+COPY . ./
+RUN dotnet publish service.csproj -c Release --no-restore -o /app/publish /p:UseAppHost=false
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled
+WORKDIR /app
+COPY --from=build /app/publish ./
+# Program.cs listens on $PORT. Configuration (ConnectionStrings__DefaultConnection,
+# Clerk__Issuer, CLERK_API_KEY) must come from the platform's environment variables.
+ENV PORT=80 DOTNET_EnableDiagnostics=0
+ENTRYPOINT ["dotnet", "service.dll"]

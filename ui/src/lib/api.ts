@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import axios from "axios";
 import qs from "qs";
 import { createServerFn } from "@tanstack/react-start";
@@ -10,8 +11,9 @@ import { RemoteStudy, ReviewPayload } from "@/src/types/study.type";
 import { isNotFound } from "@/src/lib/errors";
 import { ApproveSuggestionPayload, CreateSuggestionPayload, RemoteRejectSuggestion, RemoteSuggestionApproval, SuggestionStatus, WordSuggestion } from "@/src/types/suggestion.type";
 
+// Override per environment with VITE_API_URL / VITE_INFERENCE_URL (e.g. in .env.local).
 const api = axios.create({
-    baseURL: "http://localhost:5026",
+    baseURL: import.meta.env.VITE_API_URL ?? "http://localhost:5026",
     timeout: 15_000,
     headers: {
         "Content-Type": "application/json"
@@ -20,7 +22,7 @@ const api = axios.create({
 
 // Inference decodes and runs the model over the whole clip, so allow it longer.
 const ai = axios.create({
-    baseURL: "http://localhost:8080",
+    baseURL: import.meta.env.VITE_INFERENCE_URL ?? "http://localhost:8080",
     timeout: 60_000,
 });
 

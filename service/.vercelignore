@@ -1,0 +1,9 @@
+# Keep local secrets and build output out of `vercel deploy` uploads.
+.env
+.env.*
+bin/
+obj/
+.vercel/
+.vs/
+.vscode/
+.idea/

@@ -8,6 +8,21 @@ var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Container platforms (Dockerfile.vercel) set PORT; locally launchSettings.json applies.
+var port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrEmpty(port))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+}
+
+// Comma-separated list of frontend origins, e.g. set the env var
+// Cors__AllowedOrigins="http://localhost:3000,https://my-ui.onrender.com".
+var allowedOrigins = (builder.Configuration["Cors:AllowedOrigins"] ?? "http://localhost:3000")
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    // Browsers send the Origin header without a trailing slash.
+    .Select(origin => origin.TrimEnd('/'))
+    .ToArray();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(
@@ -15,7 +30,7 @@ builder.Services.AddCors(options =>
         policy =>
         {
             policy
-                .WithOrigins("http://localhost:3000")
+                .WithOrigins(allowedOrigins)
                 .AllowAnyHeader()
                 .AllowAnyMethod()
                 .AllowCredentials();

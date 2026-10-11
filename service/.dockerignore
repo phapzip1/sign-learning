@@ -1,0 +1,15 @@
+# Build output: the image builds its own.
+bin/
+obj/
+
+# Local secrets and tooling state must never be baked into the image.
+.env
+.env.*
+.vercel/
+.vs/
+.vscode/
+.idea/
+
+# Not needed at runtime.
+Scripts/
+service.http
