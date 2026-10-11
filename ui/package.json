@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build"
+    "build": "vite build",
+    "start": "node .output/server/index.mjs"
   },
   "keywords": [],
   "author": "",
@@ -25,6 +26,7 @@
     "class-variance-authority": "^0.7.1",
     "cn": "^0.2.6",
     "lucide-react": "^1.44.0",
+    "nitro": "^3.0.260903-beta",
     "qs": "^6.16.0",
     "react-activity-calendar": "^3.2.1",
     "react-player": "^3.4.0",
