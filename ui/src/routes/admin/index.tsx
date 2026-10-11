@@ -19,7 +19,14 @@ import UsersTab from "@/src/components/users-tab";
 import { WordsTab } from "@/src/components/word-tab";
 import SuggestionsTab from "@/src/components/suggestions-tab";
 
+const ADMIN_TABS = ["suggestions", "words", "users"] as const;
+
+type AdminTab = (typeof ADMIN_TABS)[number];
+
 const AdminPage: React.FC = () => {
+    const { tab } = Route.useSearch();
+    const navigate = Route.useNavigate();
+
     return (
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-6">
 
@@ -35,7 +42,8 @@ const AdminPage: React.FC = () => {
             </div>
 
             <Tabs
-                defaultValue="suggestions"
+                value={tab}
+                onValueChange={(value: AdminTab) => navigate({ search: { tab: value } })}
                 className="w-full"
             >
                 <TabsList>
@@ -86,4 +94,10 @@ const AdminPage: React.FC = () => {
 
 export const Route = createFileRoute("/admin/")({
     component: AdminPage,
+    validateSearch: (search: Record<string, unknown>): { tab: AdminTab } => ({
+        tab: ADMIN_TABS.find((t) => t === search.tab) ?? "suggestions",
+    }),
+    head: () => ({
+        meta: [{ title: "Admin · Sign Learning" }],
+    }),
 });

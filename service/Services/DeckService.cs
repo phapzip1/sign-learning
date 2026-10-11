@@ -4,15 +4,20 @@ namespace Service.Services
 {
     public interface IDeckService
     {
+        // Every field is optional. On create, an omitted field takes the
+        // Models.Deck default; on update, an omitted (null) field keeps its
+        // current value, so renaming a deck doesn't reset its study settings.
         public class DeckUpsertParams
         {
-            public string Name { get; set; } = string.Empty;
+            public string? Name { get; set; }
             public string? Description { get; set; }
-            public int[] LearningSteps { get; set; } = [60, 600];
-            public int[] RelearningSteps { get; set; } = [600];
-            public uint MaximumInterval { get; set; } = 365000;
-            public uint NewCardsPerDay { get; set; } = 20;
-            public uint MaximumReviewsPerDay { get; set; } = 200;
+            // Seconds between learning / relearning steps.
+            public int[]? LearningSteps { get; set; }
+            public int[]? RelearningSteps { get; set; }
+            // Days.
+            public uint? MaximumInterval { get; set; }
+            public uint? NewCardsPerDay { get; set; }
+            public uint? MaximumReviewsPerDay { get; set; }
         }
 
         public class AddWordToDeckParams
@@ -47,9 +52,16 @@ namespace Service.Services
             {
                 Id = Guid.NewGuid().ToString("N"),
                 UserId = uid,
+                Description = string.Empty,
                 CreatedAt = now,
                 UpdatedAt = now
             };
+
+            if (string.IsNullOrWhiteSpace(args.Name))
+            {
+                throw new ArgumentException("Deck name is required.");
+            }
+
             Apply(deck, args);
             mDbContext.Decks.Add(deck);
             await mDbContext.SaveChangesAsync();
@@ -408,16 +420,50 @@ namespace Service.Services
             return deck;
         }
 
+        // Applies only the fields present in the request; null keeps the deck's current value.
         private static void Apply(Models.Deck deck, IDeckService.DeckUpsertParams request)
         {
-            deck.Name = request.Name.Trim();
-            deck.Description = request.Description ?? string.Empty;
+            Validate(request);
+
+            if (request.Name is not null)
+                deck.Name = request.Name.Trim();
+
+            if (request.Description is not null)
+                deck.Description = request.Description;
+
             // Clone incoming arrays: avoid mutable shared references.
-            deck.LearningSteps = (int[])request.LearningSteps.Clone();
-            deck.RelearningSteps = (int[])request.RelearningSteps.Clone();
-            deck.MaximumInterval = request.MaximumInterval;
-            deck.NewCardsPerDay = request.NewCardsPerDay;
-            deck.MaximumReviewsPerDay = request.MaximumReviewsPerDay;
+            if (request.LearningSteps is not null)
+                deck.LearningSteps = (int[])request.LearningSteps.Clone();
+
+            if (request.RelearningSteps is not null)
+                deck.RelearningSteps = (int[])request.RelearningSteps.Clone();
+
+            if (request.MaximumInterval is not null)
+                deck.MaximumInterval = request.MaximumInterval.Value;
+
+            if (request.NewCardsPerDay is not null)
+                deck.NewCardsPerDay = request.NewCardsPerDay.Value;
+
+            if (request.MaximumReviewsPerDay is not null)
+                deck.MaximumReviewsPerDay = request.MaximumReviewsPerDay.Value;
+        }
+
+        // Rejects settings the scheduler can't use, so a bad value fails here
+        // with a 400 instead of later when one of the deck's cards is reviewed.
+        private static void Validate(IDeckService.DeckUpsertParams request)
+        {
+            if (request.Name is not null && string.IsNullOrWhiteSpace(request.Name))
+                throw new ArgumentException("Deck name cannot be empty.");
+
+            // FsrsScheduler.ValidStep throws on non-positive steps.
+            if (request.LearningSteps?.Any(step => step <= 0) == true)
+                throw new ArgumentException("Learning steps must be greater than zero seconds.");
+
+            if (request.RelearningSteps?.Any(step => step <= 0) == true)
+                throw new ArgumentException("Relearning steps must be greater than zero seconds.");
+
+            if (request.MaximumInterval == 0)
+                throw new ArgumentException("Maximum interval must be at least 1 day.");
         }
     }
 }

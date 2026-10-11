@@ -294,4 +294,7 @@ const DashboardPage: React.FC = () => {
 
 export const Route = createFileRoute("/")({
     component: DashboardPage,
+    head: () => ({
+        meta: [{ title: "Sign Learning · Learn sign language" }],
+    }),
 });

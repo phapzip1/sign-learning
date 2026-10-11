@@ -281,6 +281,9 @@ const FavoritesPage: React.FC = () => {
 
 export const Route = createFileRoute("/me/collections")({
   component: FavoritesPage,
+  head: () => ({
+      meta: [{ title: "Your collections · Sign Learning" }],
+  }),
   validateSearch: (search: Record<string, unknown>) => {
     if (search) {
       return {

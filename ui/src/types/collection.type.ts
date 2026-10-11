@@ -15,8 +15,8 @@ export type RemoteCollection = {
     learningSteps: number[];
     relearningSteps: number[];
     maximumInterval: number;
-    newCardPerDay: number;
-    maximumReviewPerDay: number;
+    newCardsPerDay: number;
+    maximumReviewsPerDay: number;
     updatedAt: Date;
     createdAt: Date;
 }
@@ -38,7 +38,7 @@ export type RemoteCollectionUpsert = {
     learningSteps?: number[];
     relearningSteps?: number[];
     maximumInterval?: number;
-    newCardPerDay?: number;
-    maximumReviewPerDay?: number;
+    newCardsPerDay?: number;
+    maximumReviewsPerDay?: number;
 
 }

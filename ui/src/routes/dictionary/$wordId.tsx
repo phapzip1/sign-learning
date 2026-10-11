@@ -1,6 +1,6 @@
 import React from "react";
-import { ArrowLeft, Heart, Lightbulb } from "lucide-react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { ArrowLeft, CloudOff, Heart, Lightbulb, LogIn, SearchX } from "lucide-react";
+import { createFileRoute, ErrorComponentProps, Link, notFound, useRouter } from "@tanstack/react-router";
 import SignDemo from "@/src/components/sign-demo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getWord } from "@/src/lib/api";
 import AddToCollectionButton from "@/src/components/add-to-collection-button";
 import LevelBadge from "@/src/components/level-badge";
-import { Show } from "@clerk/tanstack-react-start";
+import { Show, SignInButton } from "@clerk/tanstack-react-start";
+import EmptyState from "@/src/components/empty-state";
+import RelatedWords from "@/src/components/related-words";
+import { isNotFound, toApiError } from "@/src/lib/errors";
 
 const BackLink: React.FC = () => (
     <Button
@@ -54,7 +57,7 @@ const WordDetailPage: React.FC = () => {
                         <img
                             className="aspect-video w-full object-contain"
                             src={word.cover}
-                            alt={word.title}
+                            alt={`Illustration of the sign for "${word.title}"`}
                         />
                     </div>
                 )}
@@ -103,8 +106,53 @@ const WordDetailPage: React.FC = () => {
                             }
                         />
                     </Show>
+                    <Show when="signed-out">
+                        <Card size="sm">
+                            <CardContent className="flex flex-col gap-3">
+                                <p className="text-sm text-muted-foreground">
+                                    Sign in to save this sign to one of your collections and practise it later.
+                                </p>
+                                {/* Modal sign-in keeps the learner on this word afterwards. */}
+                                <SignInButton mode="modal">
+                                    <Button size="lg" variant="outline" className="w-full">
+                                        <LogIn />
+                                        Sign in to save
+                                    </Button>
+                                </SignInButton>
+                            </CardContent>
+                        </Card>
+                    </Show>
                 </div>
             </div>
+
+            <RelatedWords wordId={word.id} topic={word.topic} />
+        </div>
+    );
+}
+
+const WordNotFound: React.FC = () => (
+    <div className="flex w-full flex-col gap-6">
+        <BackLink />
+        <EmptyState
+            icon={SearchX}
+            title="We couldn't find that sign"
+            description="It may have been removed, or the link might be wrong. Try searching the dictionary instead."
+        />
+    </div>
+);
+
+const WordError: React.FC<ErrorComponentProps> = ({ error }) => {
+    const router = useRouter();
+
+    return (
+        <div className="flex w-full flex-col gap-6">
+            <BackLink />
+            <EmptyState
+                icon={CloudOff}
+                title="Couldn't load this sign"
+                description={toApiError(error).message}
+                action={<Button onClick={() => router.invalidate()}>Try again</Button>}
+            />
         </div>
     );
 }
@@ -112,10 +160,21 @@ const WordDetailPage: React.FC = () => {
 export const Route = createFileRoute("/dictionary/$wordId")({
     component: WordDetailPage,
     loader: async ({ params }) => {
-        const { wordId } = params;
-        const post = await getWord(wordId);
-        return post;
+        try {
+            return await getWord(params.wordId);
+        } catch (error) {
+            if (isNotFound(error)) {
+                throw notFound();
+            }
+
+            throw error;
+        }
     },
+    head: ({ loaderData }) => ({
+        meta: [{ title: loaderData ? `${loaderData.title} · Sign Learning` : "Sign · Sign Learning" }],
+    }),
+    notFoundComponent: WordNotFound,
+    errorComponent: WordError,
     pendingComponent: () => {
 
         return (
