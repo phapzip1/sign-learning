@@ -1,19 +1,21 @@
+/**
+ * Top navigation: public links, links for signed-in users, an Admin link for admins,
+ * and the sign-in / sign-out button. Collapses into a side sheet on small screens.
+ */
+
 import React from "react";
 import { Link } from "@tanstack/react-router";
-import { Show, SignInButton, SignOutButton } from "@clerk/tanstack-react-start";
+import { Show, SignInButton, SignOutButton, useAuth } from "@clerk/tanstack-react-start";
 import {
-    Activity,
     BookOpen,
     Hand,
     Home,
-    Lightbulb,
     LogIn,
     LogOut,
     Menu,
-    Palette,
     Search,
+    ShieldCheck,
     UserRound,
-    Users,
 } from "lucide-react";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
@@ -25,6 +27,7 @@ import {
     SheetTrigger,
 } from "@/components/ui/sheet";
 
+/** A navigation link. */
 type NavItem = {
     to: string;
     label: string;
@@ -42,12 +45,18 @@ const authedNav: NavItem[] = [
 ];
 
 const adminNav: NavItem[] = [
-    { to: "/admin/users", label: "Users", icon: Users },
-    { to: "/admin/suggestions", label: "Suggestions", icon: Lightbulb },
-    { to: "/admin/analytics", label: "Traffic analytics", icon: Activity },
-    { to: "/admin/customize", label: "Customize web", icon: Palette },
+    { to: "/admin", label: "Admin", icon: ShieldCheck },
 ];
 
+// Reads the same "role" claim the API's Admin policy checks. This only decides
+// whether to show the link; the API still authorizes every admin request.
+const useIsAdmin = () => {
+    const { isSignedIn, sessionClaims } = useAuth();
+
+    return Boolean(isSignedIn) && (sessionClaims as { role?: unknown } | null | undefined)?.role === "admin";
+}
+
+/** One navigation link, highlighted when its route is active. */
 const NavLink: React.FC<{
     item: NavItem;
     onNavigate?: () => void;
@@ -70,10 +79,13 @@ const NavLink: React.FC<{
     );
 }
 
+/** All links the current user may see. */
 const NavLinks: React.FC<{
     onNavigate?: () => void;
     itemClassName?: string;
 }> = ({ onNavigate, itemClassName }) => {
+    const isAdmin = useIsAdmin();
+
     return (
         <>
             {
@@ -88,10 +100,16 @@ const NavLinks: React.FC<{
                     ))
                 }
             </Show>
+            {
+                isAdmin && adminNav.map((item) => (
+                    <NavLink key={item.to} item={item} onNavigate={onNavigate} className={itemClassName} />
+                ))
+            }
         </>
     );
 }
 
+/** Sign-in button for visitors, sign-out button for signed-in users. */
 const AuthButton: React.FC<{ className?: string }> = ({ className }) => {
     return (
         <>
@@ -115,6 +133,7 @@ const AuthButton: React.FC<{ className?: string }> = ({ className }) => {
     );
 }
 
+/** Desktop navigation bar plus the mobile menu sheet. */
 const NavList: React.FC = () => {
     const [open, setOpen] = React.useState(false);
 

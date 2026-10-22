@@ -1,3 +1,9 @@
+/**
+ * Admin area (/admin) with Suggestions, Words and Users tabs. The selected tab is in
+ * the URL. Hiding this page is only for convenience: the API checks the admin role on
+ * every admin request.
+ */
+
 import {
     createFileRoute,
 } from "@tanstack/react-router";

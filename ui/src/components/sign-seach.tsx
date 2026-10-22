@@ -1,3 +1,9 @@
+/**
+ * "Search by sign" dialog: records a short clip from the webcam, sends it to the
+ * recognition service and lets the learner pick the intended sign from the top matches.
+ * The camera only starts on request and every track is stopped on close or unmount.
+ */
+
 import React from "react";
 import { Camera, Circle, Loader2, Square, TriangleAlert } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -17,6 +23,7 @@ const MIME_TYPES = ["video/mp4; codecs=vp9", "video/webm; codecs=vp9", "video/we
 
 const MAX_RECORD_MS = 10000;
 
+/** Reasons the camera could not be used, each with its own message. */
 type CameraProblem =
     | "unsupported"
     | "insecure"
@@ -34,6 +41,7 @@ const CAMERA_MESSAGES: Record<CameraProblem, string> = {
     failed: "We couldn't start your camera. Please try again.",
 };
 
+/** Maps a getUserMedia error to a CameraProblem. */
 const cameraProblemFrom = (error: unknown): CameraProblem => {
     const name = error instanceof DOMException ? error.name : "";
 
@@ -43,20 +51,27 @@ const cameraProblemFrom = (error: unknown): CameraProblem => {
     return "failed";
 }
 
+/** First supported recording format, or undefined for the browser default. */
 const pickMimeType = () =>
     MIME_TYPES.find((type) => MediaRecorder.isTypeSupported(type));
 
 // The inference service returns its top-ranked labels with raw model scores.
 // Scores aren't calibrated probabilities, so we only use them for ordering and
 // let the user pick the sign they meant.
+/** Orders the recognition result by score and drops labels missing from the label map. */
 const rankCandidates = (result: Record<string, number>) =>
     Object.entries(result)
         .filter(([label]) => !label.startsWith("Unknown:"))
         .sort((a, b) => b[1] - a[1])
         .map(([label]) => label);
 
+/** Dialog state: camera off, starting, ready, recording, or waiting for recognition. */
 type Phase = "idle" | "starting" | "ready" | "recording" | "searching";
 
+/**
+ * Button that opens the sign search dialog.
+ * @param onSelect Called with the sign label the learner picked.
+ */
 const SignSearch: React.FC<{
     onSelect?: (word: string) => void;
 }> = ({ onSelect }) => {

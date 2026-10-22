@@ -1,3 +1,8 @@
+/**
+ * Overview tab (/me): current streak, GitHub-style study calendar per year, and an
+ * activity chart for the last week, month or quarter.
+ */
+
 import React, { lazy, Suspense, useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { ActivityCalendar, type Activity, type Props } from "react-activity-calendar";

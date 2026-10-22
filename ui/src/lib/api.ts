@@ -1,3 +1,11 @@
+/**
+ * HTTP client for the ASP.NET Core API and the sign recognition service.
+ *
+ * Every function returns the parsed response data and throws an AxiosError when the
+ * request fails; turn that into a user-facing message with toApiError (lib/errors.ts).
+ * Base URLs come from VITE_API_URL and VITE_INFERENCE_URL (see ui/README.md).
+ */
+
 /// <reference types="vite/client" />
 import axios from "axios";
 import qs from "qs";
@@ -26,6 +34,11 @@ const ai = axios.create({
     timeout: 60_000,
 });
 
+/**
+ * Sends a recorded clip to the recognition service (POST /predict).
+ * @param video Recorded chunks, combined into one uploaded file.
+ * @returns The top 5 sign labels mapped to raw model scores (not probabilities).
+ */
 const searchBySign = async (video: Blob[]) => {
     const file = new File(video, "temp");
 
@@ -45,6 +58,7 @@ const searchBySign = async (video: Blob[]) => {
     return data;
 }
 
+/** Fetches one dictionary word (GET /api/words/{id}) and maps it to a WordItem. */
 const getWord = async (id: string) => {
     const { data, status, statusText } = await api.get<RemoteWordItem>(`api/words/${id}`);
 
@@ -66,6 +80,10 @@ const getWord = async (id: string) => {
     } satisfies WordItem;
 }
 
+/**
+ * Searches the dictionary (GET /api/words). Defaults: first page, 8 per page,
+ * the first sort order and all levels. Topic ids map to TOPICS in types/topic.type.ts.
+ */
 const getWordList = async (params: {
     search?: string;
     topic?: number;
@@ -112,6 +130,10 @@ const getWordList = async (params: {
     };
 }
 
+/**
+ * Lists the user's decks with today's study counts (GET /api/decks).
+ * @param auth Full Authorization header value: "Bearer <Clerk session token>".
+ */
 const getCollections = async (auth: string) => {
     const { data, status, statusText } = await api.get<RemoteCollectionCard[]>("api/decks", {
         headers: {
@@ -137,6 +159,10 @@ const getCollection = async (deckId: string, auth: string) => {
     return data;
 }
 
+/**
+ * Lists the cards in a deck (GET /api/decks/{deckId}/cards).
+ * @param auth Full Authorization header value: "Bearer <Clerk session token>".
+ */
 const getCards = async (deckId: string, auth: string) => {
     const { data, status, statusText } = await api.get<RemoteWordCard[]>(`api/decks/${deckId}/cards`, {
         headers: {
@@ -151,6 +177,10 @@ const getCards = async (deckId: string, auth: string) => {
     return data;
 }
 
+/**
+ * Creates a deck (POST /api/decks). Omitted settings use the server defaults.
+ * @param auth Full Authorization header value: "Bearer <Clerk session token>".
+ */
 const createCollection = async (params: RemoteCollectionUpsert, auth: string) => {
     const { data } = await api.post<RemoteCollection>("api/decks", params, {
         headers: {
@@ -161,6 +191,10 @@ const createCollection = async (params: RemoteCollectionUpsert, auth: string) =>
     return data;
 }
 
+/**
+ * Updates a deck (PUT /api/decks/{id}). Only the fields present are changed.
+ * @param auth Full Authorization header value: "Bearer <Clerk session token>".
+ */
 const updateCollection = async (collection: string, payload: RemoteCollectionUpsert, auth: string) => {
 
     const { data } = await api.put<RemoteCollection>(`api/decks/${collection}`, payload, {
@@ -172,6 +206,10 @@ const updateCollection = async (collection: string, payload: RemoteCollectionUps
     return data;
 }
 
+/**
+ * Deletes a deck with its cards and review history (DELETE /api/decks/{id}).
+ * @param auth Full Authorization header value: "Bearer <Clerk session token>".
+ */
 const deleteCollection = async (collection: string, auth: string) => {
     const { data } = await api.delete<RemoteCollection>(`api/decks/${collection}`, {
         headers: {
@@ -222,6 +260,10 @@ const addNewCards = async (deckId: string, wordIds: number[], auth: string) => {
     return data;
 }
 
+/**
+ * Current study streak in days (GET /api/stats/streak).
+ * @param auth Full Authorization header value: "Bearer <Clerk session token>".
+ */
 const getStreakStats = async (auth: string) => {
     const { data } = await api.get<{ currentStreak: number; }>("/api/stats/streak", {
         headers: {
@@ -232,6 +274,10 @@ const getStreakStats = async (auth: string) => {
     return data.currentStreak;
 }
 
+/**
+ * Review counts for every day of a year, for the study calendar (GET /api/stats/activity/{year}).
+ * @param auth Full Authorization header value: "Bearer <Clerk session token>".
+ */
 const getHeatmapStats = async (year: number, auth: string) => {
     const { data } = await api.get<RemoteDailyActivity>(`/api/stats/activity/${year}`, {
         headers: {
@@ -242,6 +288,11 @@ const getHeatmapStats = async (year: number, auth: string) => {
     return data;
 }
 
+/**
+ * Daily review counts for the activity chart (GET /api/stats/line-chart/{period}).
+ * @param period 0 = last week, 1 = last month, 2 = last quarter.
+ * @param auth Full Authorization header value: "Bearer <Clerk session token>".
+ */
 const getChartStats = async (period: number, auth: string) => {
     const { data } = await api.get<RemoteActivityPoint>(`/api/stats/line-chart/${period}`, {
         headers: {
@@ -252,6 +303,10 @@ const getChartStats = async (period: number, auth: string) => {
     return data;
 }
 
+/**
+ * Years that contain reviews, newest first (GET /api/stats/years).
+ * @param auth Full Authorization header value: "Bearer <Clerk session token>".
+ */
 const getYearsStats = async (auth: string) => {
     const { data } = await api.get<number[]>("/api/stats/years", {
         headers: {
@@ -262,6 +317,10 @@ const getYearsStats = async (auth: string) => {
     return data;
 }
 
+/**
+ * Gets a deck's study state and next card (GET /api/decks/{deckId}/study).
+ * @param token Clerk session token (without "Bearer").
+ */
 const getStudy = async (deckId: string, token: string) => {
     const { data } = await api.get<RemoteStudy>(`/api/decks/${deckId}/study`,
         {
@@ -274,6 +333,11 @@ const getStudy = async (deckId: string, token: string) => {
     return data;
 };
 
+/**
+ * Submits a rating for a card (POST /api/decks/{deckId}/cards/{cardId}/review).
+ * `reviewData.clientEventId` must be unique per rating so retries are not counted twice.
+ * @param token Clerk session token (without "Bearer").
+ */
 const reviewCard = async (cardId: string, deckId: string, reviewData: ReviewPayload, token: string) => {
     const { data } = await api.post<RemoteStudy>(`/api/decks/${deckId}/cards/${cardId}/review`,
         reviewData,
@@ -287,6 +351,11 @@ const reviewCard = async (cardId: string, deckId: string, reviewData: ReviewPayl
     return data;
 }
 
+/**
+ * Server function (runs on the TanStack Start server, never in the browser) that pages
+ * through Clerk users for the admin Users tab. Uses CLERK_SECRET_KEY and refuses callers
+ * whose session token lacks role "admin".
+ */
 const getAdminUsers = createServerFn({ method: "GET" })
     .validator((data: {
         page: number;
@@ -355,6 +424,10 @@ const getAdminUsers = createServerFn({ method: "GET" })
         };
     });
 
+/**
+ * Lists word suggestions for moderation (GET /api/admin/word-suggestions), optionally by status.
+ * @param token Clerk session token (without "Bearer").
+ */
 const getAdminSuggestions = async (status: SuggestionStatus | undefined, token: string) => {
     const { data } = await api.get<WordSuggestion[]>("/api/admin/word-suggestions",
         {
@@ -373,6 +446,10 @@ const getAdminSuggestions = async (status: SuggestionStatus | undefined, token: 
     return data;
 };
 
+/**
+ * Lists the user's own suggestions (GET /api/word-suggestions/mine).
+ * @param token Clerk session token (without "Bearer").
+ */
 const getSuggestions = async (token: string): Promise<WordSuggestion[]> => {
     const { data } = await api.get<WordSuggestion[]>("/api/word-suggestions/mine",
         {
@@ -385,6 +462,10 @@ const getSuggestions = async (token: string): Promise<WordSuggestion[]> => {
     return data;
 };
 
+/**
+ * Approves a suggestion and creates the word (POST /api/admin/word-suggestions/{id}/approve).
+ * @param token Clerk session token (without "Bearer").
+ */
 const approveSuggestion = async (suggestionId: string, payload: ApproveSuggestionPayload, token: string) => {
     const { data } = await api.post<RemoteSuggestionApproval>(`/api/admin/word-suggestions/${suggestionId}/approve`,
         payload,
@@ -398,6 +479,10 @@ const approveSuggestion = async (suggestionId: string, payload: ApproveSuggestio
     return data;
 };
 
+/**
+ * Rejects a suggestion with a reason (POST /api/admin/word-suggestions/{id}/reject).
+ * @param token Clerk session token (without "Bearer").
+ */
 const rejectSuggestion = async (suggestionId: string, payload: RemoteRejectSuggestion, token: string) => {
     const { data } = await api.post<WordSuggestion>(`/api/admin/word-suggestions/${suggestionId}/reject`,
         payload,
@@ -411,6 +496,10 @@ const rejectSuggestion = async (suggestionId: string, payload: RemoteRejectSugge
     return data;
 };
 
+/**
+ * Adds a dictionary word (POST /api/words, admins only).
+ * @param token Clerk session token (without "Bearer").
+ */
 const createWord = async (payload: WordUpsertPayload, token: string) => {
     const { data } = await api.post<RemoteWordItem>("/api/words",
         payload,
@@ -424,6 +513,10 @@ const createWord = async (payload: WordUpsertPayload, token: string) => {
     return data;
 };
 
+/**
+ * Edits a dictionary word (PUT /api/words/{id}, admins only).
+ * @param token Clerk session token (without "Bearer").
+ */
 const updateWord = async (wordId: number, payload: WordUpsertPayload, token: string) => {
     const { data } = await api.put<RemoteWordItem>(`/api/words/${wordId}`,
         payload,
@@ -437,6 +530,10 @@ const updateWord = async (wordId: number, payload: WordUpsertPayload, token: str
     return data;
 };
 
+/**
+ * Deletes a dictionary word (DELETE /api/words/{id}, admins only).
+ * @param token Clerk session token (without "Bearer").
+ */
 const deleteWord = async (wordId: number, token: string) => {
     await api.delete(`/api/words/${wordId}`,
         {
@@ -447,6 +544,10 @@ const deleteWord = async (wordId: number, token: string) => {
     );
 };
 
+/**
+ * Submits a new word suggestion (POST /api/word-suggestions).
+ * @param token Clerk session token (without "Bearer").
+ */
 const createSuggestion = async (payload: CreateSuggestionPayload, token: string) => {
     const { data } = await api.post<WordSuggestion>("/api/word-suggestions",
         payload,
@@ -460,6 +561,10 @@ const createSuggestion = async (payload: CreateSuggestionPayload, token: string)
     return data;
 }
 
+/**
+ * Development helper: the claims in the caller's token (GET /api/users/claims).
+ * @param token Clerk session token (without "Bearer").
+ */
 const getClaims = async (token: string) => {
     const { data } = await api.get<{ type: string; value: string; }>("/api/users/claims",
         {

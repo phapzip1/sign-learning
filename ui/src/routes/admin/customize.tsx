@@ -1,3 +1,5 @@
+/** Placeholder page (not built yet); the admin area lives at /admin. */
+
 import { Button } from "@/components/ui/button";
 import { createFileRoute } from "@tanstack/react-router";
 

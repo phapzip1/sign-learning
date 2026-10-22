@@ -1,3 +1,5 @@
+/** Layout for the user area (/me) with its Overview, Collections and Suggestions tabs. */
+
 import { createFileRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { BarChart3, Layers3, Lightbulb, UserRound } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,6 +24,7 @@ const tabs = [
     }
 ];
 
+/** Maps the current path to the tab value ("/" for the Overview tab). */
 const getLastSegment = (url: string) => {
     const path = url.replace(/\/+$/, "");
     const segment = path.substring(path.lastIndexOf('/') + 1)

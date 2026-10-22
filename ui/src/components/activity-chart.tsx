@@ -1,3 +1,5 @@
+/** Line chart of daily reviews for the progress page (Recharts). Lazy-loaded. */
+
 import {
     Line,
     XAxis,

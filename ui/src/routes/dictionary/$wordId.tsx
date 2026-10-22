@@ -1,3 +1,8 @@
+/**
+ * Word page (/dictionary/:wordId): video, image, meaning, signing instructions,
+ * related signs and "add to collection". Shows a not-found page for unknown ids.
+ */
+
 import React from "react";
 import { ArrowLeft, CloudOff, Heart, Lightbulb, LogIn, SearchX } from "lucide-react";
 import { createFileRoute, ErrorComponentProps, Link, notFound, useRouter } from "@tanstack/react-router";
@@ -130,6 +135,7 @@ const WordDetailPage: React.FC = () => {
     );
 }
 
+/** Shown when the word id does not exist. */
 const WordNotFound: React.FC = () => (
     <div className="flex w-full flex-col gap-6">
         <BackLink />
@@ -141,6 +147,7 @@ const WordNotFound: React.FC = () => (
     </div>
 );
 
+/** Shown when the word failed to load, with a retry button. */
 const WordError: React.FC<ErrorComponentProps> = ({ error }) => {
     const router = useRouter();
 

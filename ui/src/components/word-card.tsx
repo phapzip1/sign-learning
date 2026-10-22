@@ -1,3 +1,8 @@
+/**
+ * Card for one word in the dictionary grid and related signs: cover image, title,
+ * topic, level, short meaning, and an "add to collection" shortcut for signed-in users.
+ */
+
 import { Show } from "@clerk/tanstack-react-start";
 import { useNavigate } from "@tanstack/react-router";
 import { ArrowRight, Hand, Heart } from "lucide-react";

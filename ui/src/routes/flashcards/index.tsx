@@ -1,3 +1,8 @@
+/**
+ * Study home (/flashcards): the user's decks with new/learning/due counts and a
+ * Study button each. Visitors are asked to sign in.
+ */
+
 import React from "react";
 import { SignInButton, useAuth } from "@clerk/tanstack-react-start";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
@@ -12,6 +17,7 @@ import { getCollections } from "@/src/lib/api";
 import { RemoteCollectionCard } from "@/src/types/collection.type";
 import { toApiError } from "@/src/lib/errors";
 
+/** Labelled count (new, learning or due) on a deck card. */
 const CountPill: React.FC<{
   label: string;
   value: number;
@@ -25,6 +31,7 @@ const CountPill: React.FC<{
   );
 }
 
+/** One deck with its counts, a settings shortcut and a Study button. */
 const CollectionCard: React.FC<{
   collection: RemoteCollectionCard;
 }> = ({ collection }) => {

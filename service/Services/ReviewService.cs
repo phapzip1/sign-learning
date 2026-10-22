@@ -7,8 +7,10 @@ using Service.Models;
 namespace Service.Services
 {
 
+    /// <summary>Runs flashcard study sessions: chooses the next card and records ratings with FSRS scheduling.</summary>
     public interface IReviewService
     {
+        /// <summary>A rating submitted for one card by its owner.</summary>
         public class ReviewCardParams
         {
             public string UID { get; set; } = null!;
@@ -20,6 +22,7 @@ namespace Service.Services
 
         }
 
+        /// <summary>A deck's current study state: today's counts, the next card to show (if any) and when the next card becomes due.</summary>
         public class ReviewCardResponse
         {
             public long NewCardCount { get; set; }
@@ -30,15 +33,24 @@ namespace Service.Services
             public DateTime? NextLearningDueAt { get; set; }
         }
 
+        /// <summary>
+        /// Records a rating and reschedules the card, inside a serializable transaction. A repeated
+        /// <c>ClientEventId</c> for the same card is ignored, so retries are safe.
+        /// </summary>
+        /// <exception cref="KeyNotFoundException">The card is not in the user's deck.</exception>
+        /// <exception cref="InvalidOperationException">The daily new-card limit is reached, or the card is not due yet.</exception>
         Task<ReviewCardResponse> ReviewCardAsync(ReviewCardParams args);
+        /// <summary>Gets the study state of one of the user's decks.</summary>
         Task<ReviewCardResponse> GetStudyAsync(string uid, string deckId, int limit = 20);
     }
 
+    /// <summary>EF Core implementation of <see cref="IReviewService"/>.</summary>
     public class ReviewService(SignLearningContext dbContext) : IReviewService
     {
         private readonly SignLearningContext mDbContext = dbContext;
         private readonly Utils.FsrsScheduler mScheduler = new();
 
+        /// <inheritdoc/>
         public async Task<IReviewService.ReviewCardResponse> GetStudyAsync(string uid, string deckId, int limit = 20)
         {
             var now = DateTime.UtcNow;
@@ -59,6 +71,7 @@ namespace Service.Services
             );
         }
 
+        /// <summary>Counts new (within today's limit), learning and due cards, and picks the next card to show.</summary>
         private async Task<IReviewService.ReviewCardResponse> BuildStudyResponseAsync(Deck deck, DateTime now)
         {
             var startOfDay = now.Date;
@@ -132,6 +145,7 @@ namespace Service.Services
             };
         }
 
+        /// <inheritdoc/>
         public async Task<IReviewService.ReviewCardResponse> ReviewCardAsync(IReviewService.ReviewCardParams args)
         {
 
@@ -207,6 +221,10 @@ namespace Service.Services
             return await GetStudyAsync(args.UID, args.DeckID);
         }
 
+        /// <summary>
+        /// Picks the next card in priority order: due learning/relearning cards, then due review cards,
+        /// then (when <paramref name="allowNew"/>) the oldest new card.
+        /// </summary>
         private async Task<Card?> GetNextCardAsync(string deckId, bool allowNew, DateTime now)
         {
             // Learning / Relearning

@@ -1,3 +1,8 @@
+/**
+ * Side sheet for creating or editing a deck. When editing, it loads the deck's study
+ * settings so they can be changed; learning steps are entered in minutes and sent in seconds.
+ */
+
 import React from "react";
 import { Loader2, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,6 +23,7 @@ import { toApiError } from "@/src/lib/errors";
 import { RemoteCollectionUpsert } from "@/src/types/collection.type";
 import { useAuth } from "@clerk/tanstack-react-start";
 
+/** Form fields as typed by the user (strings until validated). */
 type FormValues = {
     name: string;
     description: string;
@@ -29,14 +35,17 @@ type FormValues = {
     maximumReviewsPerDay: string;
 };
 
+/** Validation message per field. */
 type FormErrors = Partial<Record<keyof FormValues, string>>;
 
 const SETTING_FIELDS = ["learningSteps", "relearningSteps", "maximumInterval", "newCardsPerDay", "maximumReviewsPerDay"] as const;
 
+/** Seconds from the API → "1, 10" (minutes) for the input. */
 const formatSteps = (seconds: number[]) =>
     seconds.map((s) => Number((s / 60).toFixed(2))).join(", ");
 
 // Returns seconds, or an error message.
+/** "1, 10" (minutes) → seconds, or an error message. */
 const parseSteps = (text: string): number[] | string => {
     const parts = text.split(/[\s,]+/).filter(Boolean);
     const seconds: number[] = [];
@@ -56,6 +65,7 @@ const parseSteps = (text: string): number[] | string => {
 }
 
 // Whole number >= min, or an error message.
+/** Parses a whole number of at least `min`, or returns an error message. */
 const parseWhole = (text: string, min: number, label: string): number | string => {
     if (!/^\d+$/.test(text.trim())) {
         return `${label} must be a whole number.`;
@@ -66,6 +76,11 @@ const parseWhole = (text: string, min: number, label: string): number | string =
     return value < min ? `${label} must be at least ${min}.` : value;
 }
 
+/**
+ * Create/edit deck sheet.
+ * @param id Deck id when editing; omit to create a deck.
+ * @param onCompleted Called after a successful save.
+ */
 const DeckEditor: React.FC<{
     onCompleted?: () => void;
     title?: string;

@@ -1,3 +1,8 @@
+/**
+ * Dictionary page (/dictionary): text search, topic/difficulty filters, sorting,
+ * pagination and sign search. All search state lives in the URL so a view can be shared.
+ */
+
 import React from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { BookOpen, RotateCcw, Search, SearchX } from "lucide-react";
@@ -31,6 +36,7 @@ const PAGE_SIZE = 8;
 
 const sortItems = WORDSORTs.map((sort) => ({ value: sort.value, label: sort.label }));
 
+/** Titled group of filter controls in the sidebar. */
 const FilterSection: React.FC<{
     title: string;
     children: React.ReactNode;
@@ -45,6 +51,7 @@ const FilterSection: React.FC<{
     );
 }
 
+/** URL search parameters of the dictionary page (defaults are left out of the URL). */
 type DictionarySearch = {
     q?: string;
     topic?: TopicId;
@@ -53,6 +60,10 @@ type DictionarySearch = {
     page?: number;
 };
 
+/**
+ * Cleans raw URL parameters: drops unknown topics, levels, sorts and invalid pages,
+ * and removes values that equal the defaults.
+ */
 const validateDictionarySearch = (search: Record<string, unknown>): DictionarySearch => {
     const q = typeof search.q === "string" && search.q.trim() ? search.q : undefined;
 

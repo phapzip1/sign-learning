@@ -1,3 +1,6 @@
+/** Deck ("collection") types. Field names match the API's JSON. */
+
+/** Early prototype shape. Not used. */
 export type Collection = {
     id: number;
     title: string;
@@ -8,6 +11,7 @@ export type Collection = {
         due: number;
     }
 }
+/** A deck with its study settings (step values in seconds), as returned by GET /api/decks/{id}. */
 export type RemoteCollection = {
     id: string;
     name: string;
@@ -21,6 +25,7 @@ export type RemoteCollection = {
     createdAt: Date;
 }
 
+/** A deck in a list, with today's new/learning/due counts (GET /api/decks). */
 export type RemoteCollectionCard = {
     id: string;
     name: string;
@@ -32,6 +37,7 @@ export type RemoteCollectionCard = {
     due: number;
 }
 
+/** Body for creating or updating a deck. Omitted fields keep their current (or default) value. */
 export type RemoteCollectionUpsert = {
     name?: string;
     description?: string;

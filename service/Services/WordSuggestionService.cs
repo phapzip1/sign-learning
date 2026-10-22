@@ -2,8 +2,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Service.Services
 {
+    /// <summary>Word suggestions: learners propose words, admins approve or reject them.</summary>
     public interface IWordSuggestionService
     {
+        /// <summary>Fields a learner fills in when suggesting a word.</summary>
         public sealed class CreateParams
         {
             public string Value { get; set; } = null!;
@@ -23,6 +25,7 @@ namespace Service.Services
             public string? Note { get; set; }
         }
 
+        /// <summary>Optional corrections an admin can make before the suggestion becomes a word; unset fields keep the learner's values.</summary>
         public sealed class ApproveParams
         {
             /*
@@ -46,11 +49,13 @@ namespace Service.Services
             public string? ReviewNote { get; set; }
         }
 
+        /// <summary>The admin's reason for rejecting a suggestion.</summary>
         public sealed class RejectParams
         {
             public string? ReviewNote { get; set; }
         }
 
+        /// <summary>A suggestion as returned to learners and admins.</summary>
         public sealed class SuggestionResponse
         {
             public string Id { get; set; } = null!;
@@ -88,6 +93,7 @@ namespace Service.Services
             public DateTime? ReviewedAt { get; set; }
         }
 
+        /// <summary>Result of an approval: the updated suggestion and the id of the created word.</summary>
         public sealed class ApprovalResponse
         {
             public string SuggestionId { get; set; } = null!;
@@ -97,22 +103,29 @@ namespace Service.Services
             public Models.WordSuggestionStatus Status { get; set; }
         }
 
+        /// <summary>Creates a pending suggestion. Throws <see cref="InvalidOperationException"/> when the word exists or the user already has a pending suggestion for it.</summary>
         Task<SuggestionResponse> CreateAsync(string uid, CreateParams args);
 
+        /// <summary>Gets the user's own suggestions.</summary>
         Task<IReadOnlyList<SuggestionResponse>> GetMineAsync(string uid);
 
+        /// <summary>Gets all suggestions, optionally only those with <paramref name="status"/>.</summary>
         Task<IReadOnlyList<SuggestionResponse>> GetForAdminAsync(Models.WordSuggestionStatus? status);
 
+        /// <summary>Approves a pending suggestion and creates the dictionary word from it (with the admin's corrections).</summary>
         Task<ApprovalResponse> ApproveAsync(string adminUid, string suggestionId, ApproveParams args);
 
+        /// <summary>Rejects a pending suggestion with a note for the learner.</summary>
         Task<SuggestionResponse> RejectAsync(string adminUid, string suggestionId, RejectParams args);
     }
 
+    /// <summary>EF Core implementation of <see cref="IWordSuggestionService"/>.</summary>
     public sealed class WordSuggestionService(Data.SignLearningContext dbContext, IWordService wordService) : IWordSuggestionService
     {
         private readonly Data.SignLearningContext mDbContext = dbContext;
         private readonly IWordService mWordService = wordService;
 
+        /// <inheritdoc/>
         public async Task<IWordSuggestionService.SuggestionResponse> CreateAsync(string uid, IWordSuggestionService.CreateParams args)
         {
             var value = args.Value?.Trim();
@@ -212,6 +225,7 @@ namespace Service.Services
             return Map(suggestion);
         }
 
+        /// <inheritdoc/>
         public async Task<IReadOnlyList<IWordSuggestionService.SuggestionResponse>> GetMineAsync(string uid)
         {
             return await mDbContext
@@ -267,6 +281,7 @@ namespace Service.Services
                 .ToListAsync();
         }
 
+        /// <inheritdoc/>
         public async Task<IReadOnlyList<IWordSuggestionService.SuggestionResponse>> GetForAdminAsync(Models.WordSuggestionStatus? status)
         {
             var query = mDbContext.WordSuggestions
@@ -320,6 +335,7 @@ namespace Service.Services
                 .ToListAsync();
         }
 
+        /// <inheritdoc/>
         public async Task<IWordSuggestionService.ApprovalResponse> ApproveAsync(string adminUid, string suggestionId, IWordSuggestionService.ApproveParams args)
         {
             await using var transaction = await mDbContext.Database.BeginTransactionAsync();
@@ -455,6 +471,7 @@ namespace Service.Services
             };
         }
 
+        /// <inheritdoc/>
         public async Task<IWordSuggestionService.SuggestionResponse> RejectAsync(string adminUid, string suggestionId, IWordSuggestionService.RejectParams args)
         {
             var suggestion = await mDbContext
@@ -485,6 +502,7 @@ namespace Service.Services
             return Map(suggestion);
         }
 
+        /// <summary>Trims a value and turns an empty string into null.</summary>
         private static string? Clean(string? value)
         {
             if (string.IsNullOrWhiteSpace(value))
@@ -493,6 +511,7 @@ namespace Service.Services
             return value.Trim();
         }
 
+        /// <summary>Converts an entity into the response shape.</summary>
         private static IWordSuggestionService.SuggestionResponse Map(Models.WordSuggestion suggestion)
         {
             return new IWordSuggestionService.SuggestionResponse

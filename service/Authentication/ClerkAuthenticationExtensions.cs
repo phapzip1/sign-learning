@@ -1,8 +1,13 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 
+/// <summary>Sets up JWT bearer authentication for Clerk session tokens.</summary>
 public static class ClerkAuthenticationExtensions
 {
+    /// <summary>
+    /// Validates incoming Clerk session tokens (RS256) against the issuer in <c>Clerk:Issuer</c>.
+    /// The token's claims, including <c>role</c>, become the request's user.
+    /// </summary>
     public static IServiceCollection AddClerkAuthentication(
         this IServiceCollection services,
         IConfiguration configuration)

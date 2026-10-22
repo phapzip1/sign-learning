@@ -1,3 +1,5 @@
+/** Sample topics and collections from early prototyping. Not used by the app. */
+
 import {
     Activity,
     ArrowDown01,

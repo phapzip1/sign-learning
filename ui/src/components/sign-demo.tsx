@@ -1,3 +1,5 @@
+/** Video player for a sign demonstration (YouTube or direct video URL) with visible controls and no autoplay. */
+
 import ReactPlayer from "react-player";
 import { Config } from "react-player/types";
 import { cn } from "@/lib/utils";

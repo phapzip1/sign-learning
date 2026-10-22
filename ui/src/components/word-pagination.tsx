@@ -1,3 +1,5 @@
+/** Page number navigation used by the dictionary and admin word list. */
+
 import {
     Pagination,
     PaginationContent,
@@ -9,6 +11,10 @@ import {
 } from "@/components/ui/pagination";
 import { cn } from "cn";
 
+/**
+ * Page numbers to show: all of them up to 7 pages, otherwise the first, last and
+ * neighbours of the current page with "..." for the gaps.
+ */
 const getVisiblePages = (currentPage: number, totalPages: number): (number | "...")[] => {
     if (totalPages <= 7) {
         return Array.from(

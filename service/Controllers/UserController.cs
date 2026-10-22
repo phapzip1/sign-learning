@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Service.Controllers
 {
+    /// <summary>User endpoints backed by Clerk's user management API.</summary>
     [ApiController]
     [Route("api/users")]
     public class UserController(Services.IUserService user, ILogger<UserController> logger) : ControllerBase
@@ -10,6 +11,8 @@ namespace Service.Controllers
         private readonly Services.IUserService mUser = user;
         private readonly ILogger<UserController> mLogger = logger;
 
+        /// <summary>PUT/PATCH /api/users/{userID}/ban — bans a user in Clerk.</summary>
+        /// <remarks>Known gap: only requires a signed-in user; it should require the "Admin" policy before the UI uses it.</remarks>
         [HttpPut("{userID}/ban")]
         [HttpPatch("{userID}/ban")]
         [Authorize]
@@ -28,6 +31,8 @@ namespace Service.Controllers
             }
         }
 
+        /// <summary>PUT/PATCH /api/users/{userID}/unban — lifts a ban in Clerk.</summary>
+        /// <remarks>Known gap: only requires a signed-in user; it should require the "Admin" policy before the UI uses it.</remarks>
         [HttpPut("{userID}/unban")]
         [HttpPatch("{userID}/unban")]
         [Authorize]
@@ -46,6 +51,7 @@ namespace Service.Controllers
             }
         }
 
+        /// <summary>GET /api/users — a page of users with only their id and username.</summary>
         [HttpGet]
         public async Task<IActionResult> GetUsers([FromQuery] int limit = 100, [FromQuery] int offset = 0)
         {
@@ -69,6 +75,7 @@ namespace Service.Controllers
 
         }
 
+        /// <summary>GET /api/users/me — the signed-in user's profile from Clerk.</summary>
         [HttpGet("me")]
         [Authorize]
         public async Task<IActionResult> GetMe()
@@ -107,6 +114,7 @@ namespace Service.Controllers
             }
         }
 
+        /// <summary>GET /api/users/claims — development helper that lists the claims in the caller's token.</summary>
         [Authorize]
         [HttpGet("claims")]
         public IActionResult DebugClaims()

@@ -1,9 +1,13 @@
+/** Word suggestion types, matching the suggestion endpoints of the API. */
+
 import { WordLevel } from "@/src/types/word.type";
 import { Topic, TopicId } from "@/src/types/topic.type";
 
+/** Moderation status of a suggestion. */
 export type SuggestionStatus = "Pending" | "Approved" | "Rejected";
 
 
+/** A suggestion as returned to learners and admins. */
 export type WordSuggestion = {
     id: string;
 
@@ -36,6 +40,7 @@ export type WordSuggestion = {
     reviewedAt?: string | null;
 };
 
+/** Not used; the admin word editor defines its own form type. */
 export type WordForm = {
     value: string;
     meaning: string;
@@ -46,6 +51,7 @@ export type WordForm = {
     topic: TopicId;
 };
 
+/** Body for submitting a suggestion. */
 export type CreateSuggestionPayload = {
     value: string;
     meaning: string;
@@ -58,6 +64,7 @@ export type CreateSuggestionPayload = {
     note?: string;
 };
 
+/** Body for approving: optional corrections applied before the word is created. */
 export type ApproveSuggestionPayload = {
     value?: string;
     meaning?: string;
@@ -75,10 +82,12 @@ export type ApproveSuggestionPayload = {
     reviewNote?: string;
 };
 
+/** Body for rejecting: the reason shown to the learner. */
 export type RemoteRejectSuggestion = {
     reviewNote?: string;
 };
 
+/** Result of an approval, including the new word's id. */
 export type RemoteSuggestionApproval = {
     suggestionId: string;
     wordId: number;

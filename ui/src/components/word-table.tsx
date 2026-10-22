@@ -1,3 +1,5 @@
+/** Table of the cards in a deck (collections page), with search, sorting and paging (TanStack Table). */
+
 import React from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowUpDown, ArrowUpRight } from "lucide-react";
@@ -34,6 +36,7 @@ type WordTableProps = {
 
 const columnHelper = createColumnHelper<typeof baseTableFeatures, RemoteWordCard>();
 
+/** Case-insensitive "contains" filter for a text column. */
 const myCustomFilterFn: FilterFn<typeof baseTableFeatures, RemoteWordCard> = (
     row,
     columnId,

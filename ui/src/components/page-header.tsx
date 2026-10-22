@@ -1,3 +1,5 @@
+/** Page title block with an icon, description and optional actions. */
+
 import { cn } from "cn";
 
 type PageHeaderProps = {

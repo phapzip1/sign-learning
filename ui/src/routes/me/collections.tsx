@@ -1,3 +1,8 @@
+/**
+ * Collections tab (/me/collections): manage decks (create, edit, delete) and see the
+ * cards in the selected deck. The selected deck is kept in the URL.
+ */
+
 import React from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Calendar, FileText, Layers3, Pencil, Play, Plus, Search, Trash2 } from "lucide-react";

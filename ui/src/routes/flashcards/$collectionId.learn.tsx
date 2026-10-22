@@ -1,3 +1,9 @@
+/**
+ * Study session (/flashcards/:collectionId/learn): sign-first flashcards. Shows the
+ * sign, reveals the answer on request, then submits a rating; the server picks the next
+ * card. Shortcuts: Space/Enter reveal, 1–4 rate (ignored while typing or on controls).
+ */
+
 import React, { useEffect } from "react";
 import { useAuth } from "@clerk/tanstack-react-start";
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -20,6 +26,7 @@ import { RecallRating, RemoteStudy } from "@/src/types/study.type";
 import SignDemo from "@/src/components/sign-demo";
 import EmptyState from "@/src/components/empty-state";
 
+/** The four rating buttons, their keyboard shortcuts and labels. */
 const RATINGS: {
     rating: RecallRating;
     key: string;
@@ -33,6 +40,7 @@ const RATINGS: {
         { rating: "Easy", key: "4", emoji: "🤩", hint: "Effortless", className: "border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:text-violet-800" },
     ];
 
+/** Keyboard key hint. */
 const Kbd: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className }) => (
     <kbd className={cn("inline-flex h-5 min-w-5 items-center justify-center rounded-md border border-b-2 bg-card px-1 font-sans text-[0.7rem] font-bold text-muted-foreground", className)}>
         {children}

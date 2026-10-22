@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Service.Services
 {
+    /// <summary>Deck (collection) operations for one user: list, read, create, update, delete, list cards and add words.</summary>
     public interface IDeckService
     {
         // Every field is optional. On create, an omitted field takes the
@@ -20,11 +21,13 @@ namespace Service.Services
             public uint? MaximumReviewsPerDay { get; set; }
         }
 
+        /// <summary>Ids of the dictionary words to add to a deck.</summary>
         public class AddWordToDeckParams
         {
             public uint[] WordIds { get; set; } = [];
         }
 
+        /// <summary>What happened to each requested word: newly added, moved from another deck, or already in this deck.</summary>
         public class AddWordToDeckResult
         {
             public int Added { get; set; }
@@ -32,19 +35,28 @@ namespace Service.Services
             public int AlreadyInDeck { get; set; }
         }
 
+        /// <summary>Lists the user's decks, most recently updated first, with today's study counts.</summary>
         Task<IReadOnlyList<DTOs.DeckInfoDTO>> ListAsync(string userId);
+        /// <summary>Gets one of the user's decks with its settings. Throws <see cref="KeyNotFoundException"/> otherwise.</summary>
         Task<DTOs.DeckConfigDTO> GetAsync(string uid, string deckId);
+        /// <summary>Lists the cards in one of the user's decks, oldest first.</summary>
         Task<IReadOnlyList<DTOs.WordCardDTO>> ListCardsAsync(string uid, string deckId, int page, int pageSize);
+        /// <summary>Adds words to a deck. Words already in another of the user's decks are moved, keeping their study progress; unknown ids are ignored.</summary>
         Task<AddWordToDeckResult> AddWordToDeck(string uid, string deckId, AddWordToDeckParams args);
+        /// <summary>Creates a deck. A name is required; other settings default to the <see cref="Models.Deck"/> defaults.</summary>
         Task<DTOs.DeckConfigDTO> CreateAsync(string uid, DeckUpsertParams args);
+        /// <summary>Updates only the fields that are set in <paramref name="args"/>.</summary>
         Task<DTOs.DeckConfigDTO> UpdateAsync(string uid, string deckId, DeckUpsertParams args);
+        /// <summary>Deletes one of the user's decks; its cards and review logs are deleted by cascade.</summary>
         Task DeleteAsync(string uid, string deckId);
     }
 
+    /// <summary>EF Core implementation of <see cref="IDeckService"/>.</summary>
     public class DeckService(Data.SignLearningContext dbContext) : IDeckService
     {
         private readonly Data.SignLearningContext mDbContext = dbContext;
 
+        /// <inheritdoc/>
         public async Task<DTOs.DeckConfigDTO> CreateAsync(string uid, IDeckService.DeckUpsertParams args)
         {
             var now = DateTime.UtcNow;
@@ -81,6 +93,7 @@ namespace Service.Services
             };
         }
 
+        /// <inheritdoc/>
         public async Task DeleteAsync(string uid, string deckId)
         {
             var deck = await FindOwnedDeckAsync(uid, deckId);
@@ -94,6 +107,7 @@ namespace Service.Services
             await mDbContext.SaveChangesAsync();
         }
 
+        /// <inheritdoc/>
         public async Task<DTOs.DeckConfigDTO> GetAsync(string uid, string deckId)
         {
             var deck = await FindOwnedDeckAsync(uid, deckId);
@@ -112,6 +126,7 @@ namespace Service.Services
             };
         }
 
+        /// <inheritdoc/>
         public async Task<IReadOnlyList<DTOs.DeckInfoDTO>> ListAsync(string uid)
         {
             var now = DateTime.UtcNow;
@@ -234,6 +249,7 @@ namespace Service.Services
             return result;
         }
 
+        /// <inheritdoc/>
         public async Task<DTOs.DeckConfigDTO> UpdateAsync(string uid, string deckId, IDeckService.DeckUpsertParams args)
         {
             var deck = await FindOwnedDeckAsync(uid, deckId);
@@ -259,6 +275,7 @@ namespace Service.Services
             };
         }
 
+        /// <inheritdoc/>
         public async Task<IReadOnlyList<DTOs.WordCardDTO>> ListCardsAsync(string uid, string deckId, int page, int pageSize)
         {
             Models.Deck deck = await FindOwnedDeckAsync(uid, deckId) ?? throw new KeyNotFoundException("Deck not found.");
@@ -284,6 +301,7 @@ namespace Service.Services
             return cards;
         }
 
+        /// <inheritdoc/>
         public async Task<IDeckService.AddWordToDeckResult> AddWordToDeck(string uid, string deckId, IDeckService.AddWordToDeckParams args)
         {
             if (args.WordIds == null || args.WordIds.Length == 0)
@@ -412,6 +430,7 @@ namespace Service.Services
             };
         }
 
+        /// <summary>Loads a deck owned by the user, or throws <see cref="KeyNotFoundException"/>.</summary>
         private async Task<Models.Deck> FindOwnedDeckAsync(string userId, string deckId)
         {
             var deck = await mDbContext.Decks

@@ -1,3 +1,8 @@
+/**
+ * Root layout for every page: HTML document, Clerk provider, header with navigation,
+ * and default page metadata.
+ */
+
 // src/routes/__root.tsx
 /// <reference types="vite/client" />
 // other imports...

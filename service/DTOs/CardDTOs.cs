@@ -1,5 +1,6 @@
 namespace Service.DTOs
 {
+    /// <summary>A card as listed inside a deck: the word's details plus the card's learning state.</summary>
     public class WordCardDTO
     {
         public string Id { get; set; } = null!;

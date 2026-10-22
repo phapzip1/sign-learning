@@ -2,8 +2,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Service.Services
 {
+    /// <summary>Dictionary operations: search, read, create, update and delete words.</summary>
     public interface IWordService
     {
+        /// <summary>Fields for creating or updating a word. Value, meaning, cover, video URL and instruction are required.</summary>
         public class WordUpsertParams
         {
             public string Value { get; set; } = string.Empty;
@@ -15,18 +17,29 @@ namespace Service.Services
             public Models.Topic Topic { get; set; } = Models.Topic.Other;
         }
 
+        /// <summary>
+        /// Searches words whose value contains <paramref name="search"/>, optionally filtered by topic and levels,
+        /// sorted and paged. <paramref name="page"/> starts at 1; <paramref name="pageSize"/> is clamped to 1–100.
+        /// </summary>
         Task<DTOs.PageResultDTO<Models.Word>> ListAsync(string? search, Models.Topic? topic, Models.Level[]? levels, DTOs.SortDTO sort, int page, int pageSize);
+        /// <summary>Gets a word by id. Throws <see cref="KeyNotFoundException"/> when it does not exist.</summary>
         Task<Models.Word> GetAsync(uint id);
+        /// <summary>Gets the user's deck that contains the word, or null when it is in none of their decks.</summary>
         Task<Models.Deck?> GetDeckAsync(uint id, string uid);
+        /// <summary>Validates and creates a word. Throws <see cref="InvalidOperationException"/> when the value already exists.</summary>
         Task<Models.Word> CreateAsync(WordUpsertParams args);
+        /// <summary>Validates and updates a word.</summary>
         Task<Models.Word> UpdateAsync(uint id, WordUpsertParams args);
+        /// <summary>Deletes a word. Throws <see cref="Utils.ConflictException"/> while it is still in a deck.</summary>
         Task DeleteAsync(uint id);
     }
 
+    /// <summary>EF Core implementation of <see cref="IWordService"/>.</summary>
     public class WordService(Data.SignLearningContext dbContext) : IWordService
     {
         private readonly Data.SignLearningContext mDbContext = dbContext;
 
+        /// <inheritdoc/>
         public async Task<Models.Word> CreateAsync(IWordService.WordUpsertParams args)
         {
             var value = args.Value?.Trim();
@@ -101,6 +114,7 @@ namespace Service.Services
             return word;
         }
 
+        /// <inheritdoc/>
         public async Task<Models.Deck?> GetDeckAsync(uint wordId, string uid)
         {
             var deck = await mDbContext.Cards
@@ -112,6 +126,7 @@ namespace Service.Services
             return deck;
         }
 
+        /// <inheritdoc/>
         public async Task DeleteAsync(uint id)
         {
             var word = await mDbContext.Words
@@ -128,6 +143,7 @@ namespace Service.Services
             await mDbContext.SaveChangesAsync();
         }
 
+        /// <inheritdoc/>
         public async Task<Models.Word> GetAsync(uint id)
         {
             var word = await mDbContext.Words
@@ -137,6 +153,7 @@ namespace Service.Services
             return word;
         }
 
+        /// <inheritdoc/>
         public async Task<DTOs.PageResultDTO<Models.Word>> ListAsync(string? search, Models.Topic? topic, Models.Level[]? levels, DTOs.SortDTO sort, int page, int pageSize)
         {
             page = Math.Max(page, 1);
@@ -197,6 +214,7 @@ namespace Service.Services
 
         }
 
+        /// <inheritdoc/>
         public async Task<Models.Word> UpdateAsync(uint id, IWordService.WordUpsertParams args)
         {
             var word = await mDbContext.Words
@@ -277,6 +295,7 @@ namespace Service.Services
             return word;
         }
 
+        /// <summary>Copies the validated request fields onto the word entity.</summary>
         private static void Apply(Models.Word word, IWordService.WordUpsertParams request)
         {
             word.Value = request.Value.Trim();

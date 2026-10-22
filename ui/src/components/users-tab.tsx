@@ -1,3 +1,8 @@
+/**
+ * Admin "Users" tab: searchable, paged list of Clerk users loaded through the
+ * getAdminUsers server function (admins only).
+ */
+
 import { useEffect, useState } from "react";
 import {
     ChevronLeft,
@@ -41,6 +46,7 @@ import { getAdminUsers } from "@/src/lib/api";
 
 const PAGE_SIZE = 20;
 
+/** Avatar fallback letters from the user's name, or their email. */
 const getInitials = (firstName: string | null, lastName: string | null, email: string) => {
     const first = firstName?.[0] ?? "";
 
@@ -416,6 +422,7 @@ const UsersTab = () => {
     );
 }
 
+/** Formats a Unix timestamp (ms) as a short date. */
 function formatDate(timestamp: number) {
     return new Date(timestamp).toLocaleDateString(
         undefined,

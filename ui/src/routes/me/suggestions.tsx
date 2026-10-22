@@ -1,3 +1,8 @@
+/**
+ * Suggestions tab (/me/suggestions): learners suggest new words and follow each
+ * suggestion's status and reviewer note.
+ */
+
 import { useEffect, useState } from "react";
 
 import {
@@ -73,6 +78,7 @@ const emptyForm: CreateSuggestionPayload = {
 };
 
 
+/** Formats an ISO date for the suggestion list. */
 const formatDate = (value: string) => {
   return new Date(value).toLocaleDateString(
     undefined,
@@ -84,6 +90,7 @@ const formatDate = (value: string) => {
   );
 }
 
+/** Label and value pair in the suggestion details sheet. */
 const Detail: React.FC<{
   label: string;
   value: string;
@@ -101,6 +108,7 @@ const Detail: React.FC<{
   );
 }
 
+/** Badge showing a suggestion's status in words and colour. */
 const StatusBadge: React.FC<{
   status: SuggestionStatus
 }> = ({ status }) => {
@@ -128,6 +136,7 @@ const StatusBadge: React.FC<{
   }
 }
 
+/** Read-only details of one suggestion, including the reviewer's note. */
 const ViewSuggestionSheet: React.FC<{
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -273,6 +282,7 @@ const ViewSuggestionSheet: React.FC<{
   );
 }
 
+/** Form for suggesting a new word. */
 const CreateSuggestionSheet: React.FC<{
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -421,7 +431,7 @@ const CreateSuggestionSheet: React.FC<{
                   })
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
 
@@ -458,7 +468,7 @@ const CreateSuggestionSheet: React.FC<{
                   })
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
 
@@ -608,6 +618,7 @@ const CreateSuggestionSheet: React.FC<{
   );
 }
 
+/** The learner's suggestion list with the create and view sheets. */
 const SuggestionsTab = () => {
   const { getToken } = useAuth();
 

@@ -1,5 +1,11 @@
+/**
+ * Turns failed API calls into a predictable error kind and a friendly message, so every
+ * screen can show the same loading/error states without exposing server details.
+ */
+
 import axios from "axios";
 
+/** Category of a failed request, used to pick the message and any special handling. */
 type ApiErrorKind =
     | "network"
     | "timeout"
@@ -11,6 +17,7 @@ type ApiErrorKind =
     | "server"
     | "unknown";
 
+/** A failed request: its kind, HTTP status (when there was a response) and a user-facing message. */
 type ApiError = {
     kind: ApiErrorKind;
     status?: number;
@@ -29,6 +36,7 @@ const MESSAGES: Record<ApiErrorKind, string> = {
     unknown: "Something went wrong. Please try again.",
 };
 
+/** Maps an HTTP status code to an error kind. */
 const kindFromStatus = (status: number): ApiErrorKind => {
     if (status === 401) return "unauthorized";
     if (status === 403) return "forbidden";
@@ -60,6 +68,7 @@ const toApiError = (error: unknown): ApiError => {
     return { kind: "unknown", message: MESSAGES.unknown };
 };
 
+/** True when the error is an HTTP 404 response. */
 const isNotFound = (error: unknown) =>
     axios.isAxiosError(error) && error.response?.status === 404;
 

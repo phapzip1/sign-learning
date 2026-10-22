@@ -1,3 +1,8 @@
+/**
+ * Admin "Suggestions" tab: lists learners' word suggestions by status and opens a
+ * review sheet to approve (creating the word) or reject them with a reason.
+ */
+
 import {
     useEffect,
     useMemo,
@@ -63,6 +68,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
+/** Fields the admin can correct before approving, plus the review note. */
 type ReviewForm = {
     value: string;
     meaning: string;
@@ -93,6 +99,7 @@ const emptyReviewForm: ReviewForm = {
     reviewNote: "",
 };
 
+/** Badge showing a suggestion's status in words and colour. */
 const StatusBadge = ({ status }: {
     status: SuggestionStatus;
 }) => {
@@ -120,6 +127,7 @@ const StatusBadge = ({ status }: {
     }
 }
 
+/** Formats an ISO date for the suggestion list. */
 const formatDate = (
     value: string
 ) => {
@@ -133,6 +141,7 @@ const formatDate = (
     );
 }
 
+/** One suggestion in the list, with a Review button. */
 const SuggestionRow: React.FC<{
     suggestion:
     WordSuggestion;
@@ -195,6 +204,7 @@ const SuggestionRow: React.FC<{
     );
 }
 
+/** Side sheet for reviewing one suggestion: edit fields, then approve or reject. */
 const ReviewSuggestionSheet: React.FC<{
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -649,6 +659,7 @@ const ReviewSuggestionSheet: React.FC<{
 }
 
 
+/** The admin suggestions list with its status filter, search and review sheet. */
 const SuggestionsTab: React.FC = () => {
     const { getToken } = useAuth();
 

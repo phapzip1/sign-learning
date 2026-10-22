@@ -3,8 +3,10 @@ using Service.Data;
 
 namespace Service.Services
 {
+    /// <summary>Learning statistics computed from a user's review logs. Days are UTC dates.</summary>
     public interface IStatsService
     {
+        /// <summary>Range of the activity chart: Week = 0 (last 7 days), Month = 1, Quarter = 2 (last 3 months).</summary>
         public enum ActivityPeriod
         {
             Week = 0,
@@ -51,16 +53,22 @@ namespace Service.Services
             public IReadOnlyList<LineChartPointResponse> Data { get; set; } = [];
         }
 
+        /// <summary>Consecutive days with at least one review, ending today, or yesterday if the user has not studied yet today.</summary>
         Task<StreakResponse> GetCurrentStreakAsync(string uid);
+        /// <summary>Years that contain at least one review, newest first.</summary>
         Task<IReadOnlyList<int>> GetAvailableYearsAsync(string uid);
+        /// <summary>Review count and heat level for every day of <paramref name="year"/>, including days with no reviews.</summary>
         Task<YearActivityResponse> GetYearActivityAsync(string uid, int year);
+        /// <summary>Review count per day for the chosen period up to and including today.</summary>
         Task<LineChartResponse> GetCurrentYearLineChartAsync(string uid, ActivityPeriod period);
     }
 
+    /// <summary>EF Core implementation of <see cref="IStatsService"/>.</summary>
     public sealed class StatsService(SignLearningContext dbContext) : IStatsService
     {
         private readonly SignLearningContext mDbContext = dbContext;
 
+        /// <inheritdoc/>
         public async Task<IStatsService.StreakResponse> GetCurrentStreakAsync(string uid)
         {
             var today = DateTime.UtcNow.Date;
@@ -107,6 +115,7 @@ namespace Service.Services
             };
         }
 
+        /// <inheritdoc/>
         public async Task<IStatsService.YearActivityResponse> GetYearActivityAsync(string uid, int year)
         {
             if (year < 2000 || year > DateTime.UtcNow.Year)
@@ -168,6 +177,7 @@ namespace Service.Services
             };
         }
 
+        /// <inheritdoc/>
         public async Task<IStatsService.LineChartResponse> GetCurrentYearLineChartAsync(string uid, IStatsService.ActivityPeriod period)
         {
             var today = DateTime.UtcNow.Date;
@@ -233,6 +243,7 @@ namespace Service.Services
             };
         }
 
+        /// <inheritdoc/>
         public async Task<IReadOnlyList<int>> GetAvailableYearsAsync(string uid)
         {
             return await mDbContext.ReviewLogs
@@ -246,6 +257,7 @@ namespace Service.Services
                                 .ToListAsync();
         }
 
+        /// <summary>Maps a day's review count to a calendar shade from 0 (none) to 4 (more than 50).</summary>
         private static int GetActivityLevel(int count)
         {
             return count switch
@@ -258,6 +270,8 @@ namespace Service.Services
             };
         }
 
+        /// <summary>Unused leftover overload.</summary>
+        /// <remarks>Not part of <see cref="IStatsService"/>; always throws <see cref="NotImplementedException"/>.</remarks>
         public Task<IStatsService.YearActivityResponse> GetYearActivityAsync(string uid, IStatsService.ActivityPeriod year)
         {
             throw new NotImplementedException();

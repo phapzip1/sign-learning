@@ -1,3 +1,5 @@
+/** Placeholder shown when a list is empty or failed to load: icon, title, text and an optional action. */
+
 import { cn } from "cn";
 
 type EmptyStateProps = {

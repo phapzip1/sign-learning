@@ -1,3 +1,8 @@
+/**
+ * Admin side sheet for adding or editing a dictionary word (value, meaning, level,
+ * topic, cover, video URL, instructions).
+ */
+
 import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/tanstack-react-start";
 import { Loader2, Plus } from "lucide-react";
@@ -48,6 +53,11 @@ const emptyForm: WordForm = {
 
 
 
+/**
+ * Add/edit word sheet.
+ * @param word The word to edit, or null to add a new one.
+ * @param onSaved Called after a successful save so the list can refresh.
+ */
 const WordEditor: React.FC<{
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -213,7 +223,7 @@ const WordEditor: React.FC<{
                                     })
                                 }
                             >
-                                <SelectTrigger>
+                                <SelectTrigger className="w-full">
                                     <SelectValue />
                                 </SelectTrigger>
 
@@ -252,7 +262,7 @@ const WordEditor: React.FC<{
                                     })
                                 }
                             >
-                                <SelectTrigger>
+                                <SelectTrigger className="w-full">
                                     <SelectValue />
                                 </SelectTrigger>
 

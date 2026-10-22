@@ -3,6 +3,12 @@ using Service.Models;
 namespace Service.Utils
 {
 
+    /// <summary>
+    /// FSRS (Free Spaced Repetition Scheduler) for flashcards, ported from the dart-fsrs implementation
+    /// (https://github.com/open-spaced-repetition/dart-fsrs). New and forgotten cards move through the deck's
+    /// learning steps (in seconds); learned cards get intervals in days from their stability, capped by the
+    /// deck's maximum interval.
+    /// </summary>
     public sealed class FsrsScheduler
     {
         /*
@@ -45,6 +51,9 @@ namespace Service.Utils
         private readonly double mDecay;
         private readonly double mFactor;
 
+        /// <summary>Creates a scheduler.</summary>
+        /// <param name="desiredRetention">Target chance of remembering a card when it comes due, between 0 and 1 (default 0.9).</param>
+        /// <param name="enableFuzzing">Adds a small random spread to review intervals so cards learned together do not all come due on the same day.</param>
         public FsrsScheduler(
             double desiredRetention = 0.9,
             bool enableFuzzing = true
@@ -93,6 +102,13 @@ namespace Service.Utils
          * ----------------------------------------------------------------
          */
 
+        /// <summary>
+        /// Applies a rating to <paramref name="card"/> in place: updates its state, step, stability and difficulty,
+        /// and sets its next <see cref="Card.DueAt"/>.
+        /// </summary>
+        /// <param name="card">The card being reviewed; changed in place.</param>
+        /// <param name="rating">How well the learner remembered it.</param>
+        /// <param name="now">The review time; must be UTC.</param>
         public void Review(
             Card card,
             RecallRating rating,
@@ -267,6 +283,7 @@ namespace Service.Utils
                 now;
         }
 
+        /// <summary>Estimated probability (0–1) that the learner still remembers the card at <paramref name="now"/>; 0 if it has never been reviewed.</summary>
         public double GetRetrievability(
             Card card,
             DateTime now

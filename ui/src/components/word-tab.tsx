@@ -1,3 +1,8 @@
+/**
+ * Admin "Words" tab: searchable, paged list of dictionary words with add, edit and
+ * delete (with confirmation).
+ */
+
 import {
     useEffect,
     useState,
@@ -58,6 +63,7 @@ import { WORD_TOPICS } from "@/src/types/topic.type";
 const PAGE_SIZE = 20;
 
 
+/** Formats an ISO date as e.g. "12 Oct 2026" in the user's locale. */
 function formatDate(value: string) {
     return new Date(value).toLocaleDateString(
         undefined,
@@ -73,6 +79,7 @@ type PagedWordList = Omit<RemoteWordListResponse, "items"> & {
     items: WordItem[];
 };
 
+/** The admin words table plus the editor sheet and delete dialog. */
 export function WordsTab() {
     const { getToken } = useAuth();
 
@@ -415,6 +422,7 @@ export function WordsTab() {
     );
 }
 
+/** One table row with edit and delete buttons. */
 const WordRow: React.FC<{
     word: WordItem;
     onEdit: () => void;

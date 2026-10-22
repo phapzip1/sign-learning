@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Service.Data
 {
+    /// <summary>Entity Framework Core database context. Connects to MySQL with the <c>DefaultConnection</c> connection string.</summary>
     public class SignLearningContext(IConfiguration configuration) : DbContext
     {
         private readonly IConfiguration mConfiguration = configuration;

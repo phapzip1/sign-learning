@@ -1,3 +1,8 @@
+/**
+ * Early prototype of a global user store. Not used: user data comes from Clerk and
+ * the API instead, and roles must never be trusted from client state.
+ */
+
 import { create } from "zustand";
 
 type Role = "learner" | "admin";

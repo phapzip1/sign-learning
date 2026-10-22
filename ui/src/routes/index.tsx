@@ -1,3 +1,5 @@
+/** Landing page (/): explains the app and links to the dictionary and flashcards. */
+
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
     ArrowRight,
@@ -23,6 +25,7 @@ import {
 import React from "react";
 
 
+/** One feature highlight on the landing page. */
 const FeatureCard: React.FC<{
     icon: React.ComponentType<{
         className?: string;

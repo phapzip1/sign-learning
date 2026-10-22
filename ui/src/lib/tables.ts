@@ -1,3 +1,8 @@
+/**
+ * Shared TanStack Table feature set (filtering, sorting, pagination, selection, column
+ * visibility) used by the word tables.
+ */
+
 import {
     columnFilteringFeature,
     columnVisibilityFeature,

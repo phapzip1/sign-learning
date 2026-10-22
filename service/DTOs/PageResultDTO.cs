@@ -1,5 +1,6 @@
 namespace Service.DTOs
 {
+    /// <summary>One page of results with paging information.</summary>
     public sealed class PageResultDTO<T>
     {
         public int Page { get; set; }

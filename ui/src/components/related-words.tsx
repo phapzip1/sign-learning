@@ -1,3 +1,8 @@
+/**
+ * "More signs in <topic>" section on word pages: other signs from the same topic,
+ * easiest first. Loads on its own so a failure never breaks the word page.
+ */
+
 import React from "react";
 import { Link } from "@tanstack/react-router";
 import { Sparkles } from "lucide-react";

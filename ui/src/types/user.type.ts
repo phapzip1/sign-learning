@@ -1,3 +1,5 @@
+/** Types for the admin Users tab (data from the getAdminUsers server function). */
+
 export type AdminUser = {
     id: string;
 

@@ -1,3 +1,5 @@
+/** Creates the TanStack Router instance from the generated route tree (routeTree.gen.ts). */
+
 import { createRouter } from "@tanstack/react-router"
 import { routeTree } from "./routeTree.gen"
 

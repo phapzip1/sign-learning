@@ -1,3 +1,5 @@
+/** Statistics types for the progress page (streak calendar and activity chart). */
+
 export type RemoteActivity = {
     date: string;
     count: number;

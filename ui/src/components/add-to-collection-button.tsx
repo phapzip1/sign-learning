@@ -1,3 +1,8 @@
+/**
+ * "Add to a collection" dialog on word pages: pick one of the user's decks (or create
+ * one) and save the word there. Moving a word between decks keeps its study progress.
+ */
+
 import React from "react";
 import { useAuth } from "@clerk/tanstack-react-start";
 import { CircleCheck, Heart, Loader2, TriangleAlert } from "lucide-react";
@@ -12,8 +17,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 
+/** Inline result message after saving or creating. */
 type Feedback = { tone: "success" | "error"; message: string } | null;
 
+/** Success or error line, announced to screen readers. */
 const FeedbackMessage: React.FC<{ feedback: Feedback }> = ({ feedback }) => {
     if (!feedback)
         return null;
@@ -33,6 +40,11 @@ const FeedbackMessage: React.FC<{ feedback: Feedback }> = ({ feedback }) => {
     );
 }
 
+/**
+ * Trigger button plus dialog for saving a word to a deck.
+ * @param wordId Dictionary id of the word to save.
+ * @param trigger Optional custom trigger element.
+ */
 const AddToCollectionButton: React.FC<{
     wordId: number;
     trigger?: React.JSX.Element

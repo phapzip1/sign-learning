@@ -1,3 +1,8 @@
+// Sign Learning API — entry point.
+// Startup order: load .env, listen on $PORT when set (containers), configure CORS from
+// Cors:AllowedOrigins, validate Clerk session tokens (Authentication/), define the "Admin"
+// policy (requires the token's role claim = "admin"), register the app services, serialise
+// enums as strings, then map the controllers and GET /health.
 using System.Text.Json.Serialization;
 using Clerk.BackendAPI;
 using dotenv.net;

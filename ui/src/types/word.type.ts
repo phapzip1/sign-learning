@@ -1,5 +1,8 @@
+/** Dictionary word types. "Remote" types match the API's JSON; WordItem is the UI shape. */
+
 import { Topic } from "@/src/types/topic.type";
 
+/** Sort options for the word list; `value` matches the API's SortDTO enum. */
 export const WORDSORTs = [
     { value: 0, label: "A - Z" },
     { value: 1, label: "Z - A" },
@@ -9,11 +12,13 @@ export const WORDSORTs = [
     { value: 5, label: "Oldest" },
 ] as const;
 
+/** Difficulty level as the API sends it (enum name). */
 export type WordLevel = "Beginner" | "Intermediate" | "Advance";
 
 export const WORD_LEVELS: WordLevel[] = ["Beginner", "Intermediate", "Advance"];
 
 
+/** A word as the UI uses it (API field names mapped to friendlier ones, topic resolved). */
 export type WordItem = {
     id: number;
     title: string;
@@ -27,6 +32,7 @@ export type WordItem = {
     updatedAt: string;
 }
 
+/** A word as returned by the API. */
 export type RemoteWordItem = {
     id: number;
     value: string;
@@ -40,6 +46,7 @@ export type RemoteWordItem = {
     updatedAt: string;
 }
 
+/** A card inside a deck, as returned by GET /api/decks/{id}/cards. */
 export type RemoteWordCard = {
     id: string;
     wordId: number;
@@ -52,6 +59,7 @@ export type RemoteWordCard = {
     updatedAt: string;
 }
 
+/** Body for creating or editing a word (admin). */
 export type WordUpsertPayload = {
     value: string;
     cover: string;
@@ -62,6 +70,7 @@ export type WordUpsertPayload = {
     topic: number;
 };
 
+/** One page of words from GET /api/words. */
 export type RemoteWordListResponse = {
     page: number;
     pageSize: number;
